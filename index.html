@@ -30,12 +30,6 @@
             border-radius: 5px;
             border: 1px solid #ddd;
         }
-        .date-picker {
-            margin-right: 15px;
-            padding: 8px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-        }
         button {
             padding: 8px 15px;
             background-color: #4CAF50;
@@ -121,9 +115,8 @@
         <h1>Fund Data Dashboard</h1>
         
         <div class="controls">
-            <label for="startDate">Start Date:</label>
-            <input type="date" id="startDate" class="date-picker" value="2024-12-31">
-            <button id="fetchData">Fetch Data</button>
+            <p>Showing data from 12/31/2024</p>
+            <button id="fetchData">Refresh Data</button>
         </div>
         
         <div id="errorContainer"></div>
@@ -189,6 +182,9 @@
     
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // Hardcoded start date
+            const startDate = '2024-12-31';
+            
             // Tab switching functionality
             const tabs = document.querySelectorAll('.tab');
             tabs.forEach(tab => {
@@ -215,7 +211,6 @@
             
             // Main function to fetch all fund data
             async function fetchAllFundData() {
-                const startDate = document.getElementById('startDate').value;
                 document.getElementById('errorContainer').innerHTML = '';
                 
                 // Reset data displays
