@@ -223,225 +223,102 @@
             async function fetchAllFundData() {
                 document.getElementById('errorContainer').innerHTML = '';
                 
-                // Reset data displays
+                // Show loading states
                 const fundIds = ['ancfx', 'agthx', 'afaxx'];
                 fundIds.forEach(fundId => {
                     const tabContent = document.getElementById(fundId);
                     tabContent.querySelector('.loading').style.display = 'flex';
                     tabContent.querySelector('.data-container').style.display = 'none';
                     document.getElementById(`${fundId}Warning`).style.display = 'none';
-                    document.getElementById(`${fundId}Warning`).innerHTML = '';
-                    document.getElementById(`${fundId}Data`).innerHTML = '';
                 });
-                
+
                 try {
-                    // Process each fund independently and in parallel
-                    const promises = [
-                        processANCFX(startDate),
-                        processAGTHX(startDate),
-                        processAFAXX(startDate)
-                    ];
-                    
-                    await Promise.allSettled(promises);
+                    // Process all funds first, collect results
+                    const results = await Promise.allSettled([
+                        getFundData('ANCFX', startDate),
+                        getFundData('AGTHX', startDate),
+                        getFundData('AFAXX', startDate)
+                    ]);
+
+                    // Render all results after all promises settle
+                    results.forEach((result, index) => {
+                        const fundId = fundIds[index];
+                        if (result.status === 'fulfilled') {
+                            renderFundData(fundId, result.value.data);
+                            if (result.value.warnings.length > 0) {
+                                result.value.warnings.forEach(warning => {
+                                    showWarning(fundId, warning);
+                                });
+                            }
+                        } else {
+                            showWarning(fundId, result.reason.message);
+                            renderFundData(fundId, []);
+                        }
+                    });
+
                 } catch (error) {
                     showError(`Failed to initialize fund data: ${error.message}`);
                 }
             }
-            
-            async function processANCFX(startDate) {
+
+            async function getFundData(ticker, startDate) {
+                const warnings = [];
+                let finalData = [];
+                
                 try {
-                    await processMutualFund('ANCFX', startDate);
+                    // Try to get both distribution and NAV data
+                    const [distributionData, navData] = await Promise.allSettled([
+                        getDistributionData(ticker, startDate),
+                        fetchFundData(ticker, startDate)
+                    ]);
+
+                    // Process distribution data
+                    let distItems = [];
+                    if (distributionData.status === 'fulfilled' && 
+                        distributionData.value.items && 
+                        Array.isArray(distributionData.value.items)) {
+                        distItems = distributionData.value.items;
+                    } else {
+                        warnings.push('Distribution data unavailable');
+                    }
+
+                    // Process NAV data
+                    let navItems = [];
+                    if (navData.status === 'fulfilled' && 
+                        Array.isArray(navData.value)) {
+                        navItems = navData.value;
+                    } else {
+                        warnings.push('NAV data unavailable');
+                    }
+
+                    // Merge data
+                    finalData = mergeData(distItems, navItems);
+
+                    if (finalData.length === 0) {
+                        throw new Error('No data available for this fund');
+                    }
                 } catch (error) {
-                    console.error(`Error processing ANCFX: ${error.message}`);
-                    // Try to display at least NAV data if distribution data fails
+                    // Fallback to try getting at least NAV data
                     try {
-                        const navData = await fetchFundData('ANCFX', startDate);
+                        const navData = await fetchFundData(ticker, startDate);
                         if (navData && Array.isArray(navData)) {
-                            renderFundData('ancfx', navData.map(item => ({
+                            finalData = navData.map(item => ({
                                 date: item.date,
                                 nav: item.nav,
                                 dist: null
-                            })));
-                            showWarning('ancfx', 'Distribution data unavailable. Showing NAV data only.');
-                        } else {
-                            throw new Error('No NAV data available');
-                        }
-                    } catch (navError) {
-                        throw new Error(`Could not retrieve data: ${error.message}`);
-                    }
-                }
-            }
-            
-            async function processAGTHX(startDate) {
-                try {
-                    await processMutualFund('AGTHX', startDate);
-                } catch (error) {
-                    console.error(`Error processing AGTHX: ${error.message}`);
-                    // Try to display at least NAV data if distribution data fails
-                    try {
-                        const navData = await fetchFundData('AGTHX', startDate);
-                        if (navData && Array.isArray(navData)) {
-                            renderFundData('agthx', navData.map(item => ({
-                                date: item.date,
-                                nav: item.nav,
-                                dist: null
-                            })));
-                            showWarning('agthx', 'Distribution data unavailable. Showing NAV data only.');
-                        } else {
-                            throw new Error('No NAV data available');
-                        }
-                    } catch (navError) {
-                        throw new Error(`Could not retrieve data: ${error.message}`);
-                    }
-                }
-            }
-            
-            async function processAFAXX(startDate) {
-                try {
-                    // For MMF funds, use a Promise-based approach
-                    const distributionDataPromise = new Promise((resolve, reject) => {
-                        try {
-                            // Make sure getDistributionData always returns a Promise
-                            const result = getDistributionData('AFAXX', startDate);
-                            
-                            // Handle both Promise and non-Promise return values
-                            if (result && typeof result.then === 'function') {
-                                // It's already a Promise
-                                resolve(result);
-                            } else {
-                                // It's a direct return value, resolve with it
-                                resolve(result);
-                            }
-                        } catch (error) {
-                            reject(error);
-                        }
-                    });
-                    
-                    const distributionData = await distributionDataPromise;
-                    
-                    if (distributionData.error) {
-                        throw new Error(distributionData.error);
-                    }
-                    
-                    if (!distributionData.items || !Array.isArray(distributionData.items)) {
-                        throw new Error('Distribution data is not in expected format');
-                    }
-                    
-                    renderFundData('afaxx', distributionData.items);
-                } catch (distError) {
-                    console.error(`Distribution error for AFAXX: ${distError.message}`);
-                    
-                    // If distribution data fails, try NAV data
-                    try {
-                        const navData = await fetchFundData('AFAXX', startDate);
-                        if (navData && Array.isArray(navData)) {
-                            renderFundData('afaxx', navData.map(item => ({
-                                date: item.date,
-                                nav: item.nav,
-                                dist: null
-                            })));
-                            showWarning('afaxx', 'Distribution data unavailable. Showing NAV data only.');
+                            }));
+                            warnings.push('Using NAV data only');
                         } else {
                             throw new Error('No data available');
                         }
                     } catch (navError) {
-                        console.error(`NAV error for AFAXX: ${navError.message}`);
-                        showWarning('afaxx', 'Both distribution and NAV data unavailable.');
-                        throw new Error('Both distribution and NAV data unavailable');
+                        throw new Error('All data sources failed');
                     }
                 }
+
+                return { data: finalData, warnings };
             }
-            
-            async function processMutualFund(ticker, startDate) {
-                // Try to get distribution data
-                let distributionItems = [];
-                let distributionError = null;
-                
-                try {
-                    // Make sure to properly await the distribution data
-                    const distributionDataPromise = new Promise((resolve, reject) => {
-                        try {
-                            const result = getDistributionData(ticker, startDate);
-                            
-                            // Handle both Promise and non-Promise return values
-                            if (result && typeof result.then === 'function') {
-                                // It's already a Promise
-                                resolve(result);
-                            } else {
-                                // It's a direct return value, resolve with it
-                                resolve(result);
-                            }
-                        } catch (error) {
-                            reject(error);
-                        }
-                    });
-                    
-                    const distributionData = await distributionDataPromise;
-                    
-                    if (distributionData.error) {
-                        distributionError = distributionData.error;
-                    } else if (distributionData.items && Array.isArray(distributionData.items)) {
-                        distributionItems = distributionData.items;
-                    } else {
-                        distributionError = 'Distribution data is not in expected format';
-                    }
-                } catch (error) {
-                    distributionError = error.message;
-                }
-                
-                // Try to get NAV data
-                let navItems = [];
-                let navError = null;
-                
-                try {
-                    const navData = await fetchFundData(ticker, startDate);
-                    if (navData && Array.isArray(navData)) {
-                        navItems = navData;
-                    } else {
-                        navError = 'NAV data is not in expected format';
-                    }
-                } catch (error) {
-                    navError = error.message;
-                }
-                
-                // If both failed, throw error
-                if ((distributionError || distributionItems.length === 0) && 
-                    (navError || navItems.length === 0)) {
-                    throw new Error('Both distribution and NAV data unavailable');
-                }
-                
-                // If only one failed, show warning
-                const fundId = ticker.toLowerCase();
-                if (distributionError || distributionItems.length === 0) {
-                    showWarning(fundId, `Distribution data unavailable: ${distributionError || 'No data returned'}`);
-                }
-                
-                if (navError || navItems.length === 0) {
-                    showWarning(fundId, `NAV data unavailable: ${navError || 'No data returned'}`);
-                }
-                
-                // Use whatever data we have
-                let mergedData = [];
-                
-                if (distributionItems.length > 0 && navItems.length > 0) {
-                    // We have both, merge them
-                    mergedData = mergeData(distributionItems, navItems);
-                } else if (distributionItems.length > 0) {
-                    // We only have distribution data
-                    mergedData = distributionItems;
-                } else {
-                    // We only have NAV data
-                    mergedData = navItems.map(item => ({
-                        date: item.date,
-                        nav: item.nav,
-                        dist: null
-                    }));
-                }
-                
-                // Render whatever data we have
-                renderFundData(fundId, mergedData);
-            }
-            
+
             function mergeData(distributionItems, navItems) {
                 if (!distributionItems || !Array.isArray(distributionItems)) {
                     distributionItems = [];
