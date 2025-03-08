@@ -47,7 +47,7 @@
  *   - Invalid tickers
  *   - Date parsing errors
  *   - Missing data files
- * - Errors include descriptive messages for troubleshooting
+ *   - Errors include descriptive messages for troubleshooting
  * 
  * DATA SOURCES:
  * - Mutual Funds: TSV data with columns:
@@ -81,182 +81,270 @@
  * @param {string|Date} endDate - Optional end date for data range, defaults to current date
  * @return {Promise<Object>} Promise resolving to object containing distribution data items or error
  */
-async function getDistributionData(ticker, startDate, endDate = new Date()) {
+function getDistributionData(ticker, startDate, endDate = new Date()) {
+  return new Promise((resolve, reject) => {
     try {
-        // Convert string dates to Date objects if needed
-        startDate = startDate instanceof Date ? startDate : new Date(startDate);
-        endDate = endDate instanceof Date ? endDate : new Date(endDate);
-        
-        // Fetch the fund data
-        const fundData = await fetchFundData(ticker);
-        
-        if (!fundData) {
-            return { 
-                error: `No data found for ticker ${ticker}`,
-                items: [] 
-            };
-        }
-        
-        // Process data based on fund type
-        if (fundData.type === 'mmf') {
-            return processMMFData(fundData.data, startDate, endDate);
-        } else if (fundData.type === 'mutual') {
-            return processMutualFundData(fundData.data, startDate, endDate);
-        }
-        
-        return { 
-            error: 'Unknown fund type',
-            items: [] 
-        };
+      // Validate inputs
+      if (!ticker || typeof ticker !== 'string') {
+        return resolve({ error: 'Invalid ticker symbol', items: [] });
+      }
+      
+      // Parse dates
+      const parsedStartDate = parseDate(startDate);
+      const parsedEndDate = parseDate(endDate);
+      
+      if (!parsedStartDate) {
+        return resolve({ error: 'Invalid start date format', items: [] });
+      }
+      
+      if (!parsedEndDate) {
+        return resolve({ error: 'Invalid end date format', items: [] });
+      }
+      
+      if (parsedStartDate > parsedEndDate) {
+        return resolve({ error: 'Start date cannot be after end date', items: [] });
+      }
+      
+      // Determine fund type and fetch data
+      const filename = `${ticker.toLowerCase().startsWith('mmf_') ? 'mmf' : 'mutual'}_${ticker}_distributions.txt`;
+      
+      fetchDistributionFile(ticker)
+        .then(data => {
+          if (!data) {
+            return resolve({ error: `No data found for ticker ${ticker}`, items: [] });
+          }
+          
+          // Process data based on fund type
+          let items = [];
+          
+          if (isMmfTicker(ticker)) {
+            items = parseMmfData(data, parsedStartDate, parsedEndDate);
+          } else {
+            items = parseMutualFundData(data, parsedStartDate, parsedEndDate);
+          }
+          
+          // Sort by date (oldest first)
+          items.sort((a, b) => new Date(a.date) - new Date(b.date));
+          
+          resolve({ items });
+        })
+        .catch(error => {
+          resolve({ error: `Error fetching distribution data: ${error.message}`, items: [] });
+        });
     } catch (error) {
-        console.error(`Error processing distribution data: ${error.message}`);
-        return {
-            error: `Failed to process data: ${error.message}`,
-            items: []
-        };
+      resolve({ error: `Unexpected error: ${error.message}`, items: [] });
     }
+  });
 }
 
 /**
- * Fetch fund data from the appropriate file based on ticker
- * @param {string} ticker - The fund ticker
- * @return {Promise<Object|null>} Promise resolving to fund data and type, or null if not found
+ * Determine if the ticker is for a money market fund
+ * @param {string} ticker - The fund ticker symbol
+ * @return {boolean} True if MMF, false otherwise
  */
-async function fetchFundData(ticker) {
-    try {
-        // Determine file path based on ticker
-        let filePath;
-        let fundType;
-        
-        if (ticker.startsWith('AF')) {
-            filePath = `mmf_${ticker}_distributions.txt`;
-            fundType = 'mmf';
-        } else {
-            filePath = `mutual_${ticker}_distributions.txt`;
-            fundType = 'mutual';
-        }
-        
-        // Fetch the file
-        const response = await fetch(filePath);
+function isMmfTicker(ticker) {
+  return ticker.endsWith('XX');
+}
+
+/**
+ * Fetch distribution data file for the given ticker
+ * @param {string} ticker - The fund ticker symbol
+ * @return {Promise<string>} Promise resolving to the file content
+ */
+function fetchDistributionFile(ticker) {
+  return new Promise((resolve, reject) => {
+    // In a real implementation, this would use fetch to get the file from the server
+    // For GitHub Pages, we'll use the file pattern
+    const filePrefix = isMmfTicker(ticker) ? 'mmf' : 'mutual';
+    const filename = `${filePrefix}_${ticker}_distributions.txt`;
+    
+    fetch(filename)
+      .then(response => {
         if (!response.ok) {
-            throw new Error(`Failed to fetch ${filePath} (Status: ${response.status})`);
+          throw new Error(`File not found: ${filename}`);
         }
-        
-        const data = await response.text();
-        return { type: fundType, data: data };
-    } catch (error) {
-        console.error(`Error fetching fund data: ${error.message}`);
-        return null;
-    }
+        return response.text();
+      })
+      .then(data => resolve(data))
+      .catch(error => reject(error));
+  });
 }
 
 /**
- * Process money market fund data
- * @param {string} data - The raw data string
+ * Parse date string or object into a Date object
+ * @param {string|Date} dateInput - Date string or object
+ * @return {Date|null} Parsed Date object or null if invalid
+ */
+function parseDate(dateInput) {
+  if (dateInput instanceof Date) {
+    return isNaN(dateInput) ? null : dateInput;
+  }
+  
+  if (typeof dateInput !== 'string') {
+    return null;
+  }
+  
+  // Handle different date formats
+  // Format: YYYY-MM-DD
+  if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(dateInput)) {
+    const [year, month, day] = dateInput.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  }
+  
+  // Format: MM/DD/YYYY
+  if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateInput)) {
+    const [month, day, year] = dateInput.split('/').map(Number);
+    return new Date(year, month - 1, day);
+  }
+  
+  return null;
+}
+
+/**
+ * Format date as ISO string (YYYY-MM-DD)
+ * @param {Date} date - Date object to format
+ * @return {string} ISO formatted date string
+ */
+function formatISODate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Parse money market fund data
+ * @param {string} data - Raw TSV data for MMF
  * @param {Date} startDate - Start date for filtering
  * @param {Date} endDate - End date for filtering
- * @return {Object} Processed distribution data
+ * @return {Array} Array of distribution items
  */
-function processMMFData(data, startDate, endDate) {
-    const lines = data.split('\n');
-    const result = { items: [] };
+function parseMmfData(data, startDate, endDate) {
+  const lines = data.trim().split('\n');
+  
+  // Skip header line
+  const items = [];
+  
+  for (let i = 1; i < lines.length; i++) {
+    const [rate, dateStr] = lines[i].split('\t');
     
-    // Skip header line
-    for (let i = 1; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (!line) continue;
-        
-        const [rate, dateStr] = line.split('\t');
-        
-        // Parse the date (MM/DD/YYYY format)
-        const [month, day, year] = dateStr.split('/');
-        const date = new Date(`${year}-${month}-${day}`);
-        
-        // Check if date is within range
-        if (date >= startDate && date <= endDate) {
-            result.items.push({
-                date: formatDate(date),
-                nav: 1.00, // NAV is always 1.00 for MMF
-                dist: parseFloat(rate)
-            });
-        }
+    // Parse date (MM/DD/YYYY format in the file)
+    const dateParts = dateStr.split('/');
+    if (dateParts.length !== 3) {
+      // Try alternative format (in case it's in a different format)
+      const date = new Date(dateStr);
+      if (isNaN(date)) {
+        continue; // Skip invalid dates
+      }
+      
+      if (date >= startDate && date <= endDate) {
+        items.push({
+          date: formatISODate(date),
+          nav: 1.0, // MMFs have fixed $1.00 NAV
+          dist: parseFloat(rate) // Daily accrual rate
+        });
+      }
+    } else {
+      const month = parseInt(dateParts[0]) - 1; // 0-based months
+      const day = parseInt(dateParts[1]);
+      const year = parseInt(dateParts[2]);
+      const date = new Date(year, month, day);
+      
+      if (date >= startDate && date <= endDate) {
+        items.push({
+          date: formatISODate(date),
+          nav: 1.0, // MMFs have fixed $1.00 NAV
+          dist: parseFloat(rate) // Daily accrual rate
+        });
+      }
     }
-    
-    // Sort items by date (oldest first)
-    result.items.sort((a, b) => new Date(a.date) - new Date(b.date));
-    
-    return result;
+  }
+  
+  return items;
 }
 
 /**
- * Process mutual fund data
- * @param {string} data - The raw data string
+ * Parse mutual fund distribution data
+ * @param {string} data - Raw TSV data for mutual fund
  * @param {Date} startDate - Start date for filtering
  * @param {Date} endDate - End date for filtering
- * @return {Object} Processed distribution data
+ * @return {Array} Array of distribution items
  */
-function processMutualFundData(data, startDate, endDate) {
-    const lines = data.split('\n');
-    const result = { items: [] };
+function parseMutualFundData(data, startDate, endDate) {
+  const lines = data.trim().split('\n');
+  
+  // Skip header line
+  const items = [];
+  
+  for (let i = 1; i < lines.length; i++) {
+    const parts = lines[i].split('\t');
     
-    // Skip header line
-    for (let i = 1; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (!line) continue;
-        
-        const parts = line.split('\t');
-        
-        // Parse record date (MM/DD/YY format)
-        const recordDateStr = parts[0];
-        const [month, day, year] = recordDateStr.split('/');
-        const fullYear = year.length === 2 ? `20${year}` : year;
-        const date = new Date(`${fullYear}-${month}-${day}`);
-        
-        // Check if date is within range
-        if (date >= startDate && date <= endDate) {
-            // Calculate total distribution amount (all dividends + all capital gains)
-            const regDividend = parseFloat(parts[3].replace('$', '')) || 0;
-            const specDividend = parseFloat(parts[4].replace('$', '')) || 0;
-            const longTermGains = parseFloat(parts[5].replace('$', '')) || 0;
-            const shortTermGains = parseFloat(parts[6].replace('$', '')) || 0;
-            const nav = parseFloat(parts[7].replace('$', '')) || 0;
-            
-            const totalDist = regDividend + specDividend + longTermGains + shortTermGains;
-            
-            result.items.push({
-                date: formatDate(date),
-                nav: nav,
-                dist: totalDist
-            });
-        }
+    // MM/DD/YY format expected for record date
+    let recordDateStr = parts[0];
+    
+    // Try to parse date in MM/DD/YY format
+    let recordDate;
+    if (recordDateStr.includes('/')) {
+      const [month, day, year] = recordDateStr.split('/').map(Number);
+      recordDate = new Date(2000 + year, month - 1, day); // Assumes 20xx for year
+    } else {
+      // Alternative format like MM/DD/YYYY
+      recordDate = new Date(recordDateStr);
     }
     
-    // Sort items by date (oldest first)
-    result.items.sort((a, b) => new Date(a.date) - new Date(b.date));
+    // Check if valid date could be parsed
+    if (isNaN(recordDate)) {
+      continue; // Skip invalid dates
+    }
     
-    return result;
+    // Check if in date range
+    if (recordDate >= startDate && recordDate <= endDate) {
+      // Parse numeric values with dollar signs
+      const incomeDividendRegular = parseFloat(parts[3].replace('$', '')) || 0;
+      const incomeDividendSpecial = parseFloat(parts[4].replace('$', '')) || 0;
+      const capGainsLongTerm = parseFloat(parts[5].replace('$', '')) || 0;
+      const capGainsShortTerm = parseFloat(parts[6].replace('$', '')) || 0;
+      const nav = parseFloat(parts[7].replace('$', '')) || 0;
+      
+      // Calculate total distribution
+      const totalDist = incomeDividendRegular + incomeDividendSpecial + 
+                         capGainsLongTerm + capGainsShortTerm;
+      
+      items.push({
+        date: formatISODate(recordDate),
+        nav: nav,
+        dist: totalDist
+      });
+    }
+  }
+  
+  return items;
 }
 
 /**
- * Format date as YYYY-MM-DD
- * @param {Date} date - The date to format
- * @return {string} Formatted date string
+ * Custom Date parser that handles various formats
+ * @param {string} dateString - Date string to parse
+ * @return {Date|null} Parsed Date object or null if invalid
  */
-function formatDate(date) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+function parseCustomDate(dateString) {
+  if (!dateString) return null;
+  
+  // Try MM/DD/YY format
+  if (/^\d{2}\/\d{2}\/\d{2}$/.test(dateString)) {
+    const [month, day, year] = dateString.split('/').map(Number);
+    return new Date(2000 + year, month - 1, day);
+  }
+  
+  // Try MM/DD/YYYY format
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateString)) {
+    const [month, day, year] = dateString.split('/').map(Number);
+    return new Date(year, month - 1, day);
+  }
+  
+  // Try other formats
+  const date = new Date(dateString);
+  return isNaN(date) ? null : date;
 }
 
-// For browser usage
-if (typeof window !== 'undefined') {
-    window.getDistributionData = getDistributionData;
-}
-
-// For Node.js usage
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = {
-        getDistributionData
-    };
-}
+// Export the main function
+window.getDistributionData = getDistributionData;
