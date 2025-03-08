@@ -1,6 +1,97 @@
 /**
  * Fund Distribution Data Processor
- * Processes distribution data for both mutual funds and money market funds
+ * filename = process-distributions.js
+ * Processes historical distribution data for mutual funds and money market funds (MMF),
+ * providing normalized output for dividend payments and capital gains distributions.
+ * 
+ * USAGE:
+ * 
+ * Basic Function Call:
+ * getDistributionData(ticker, startDate, [endDate])
+ *   .then(data => { /* handle data *\/ })
+ *   .catch(error => { /* handle errors *\/ });
+ * 
+ * PARAMETERS:
+ * @param {string} ticker - Fund ticker symbol (case-sensitive)
+ *     Examples: 'ANCFX' (Mutual Fund), 'AFAXX' (Money Market Fund)
+ * 
+ * @param {string|Date} startDate - Start date for historical data
+ *     - String format: 'YYYY-MM-DD' or 'MM/DD/YYYY'
+ *     - Date object: JavaScript Date instance
+ * 
+ * @param {string|Date} [endDate] - Optional end date (default: current date)
+ *     - Same format as startDate
+ * 
+ * RETURNS:
+ * @returns {Object} - Structured distribution data containing:
+ *     {
+ *       items: Array<DistributionItem> // Sorted chronologically (oldest first)
+ *       error?: string                 // Present if error occurred
+ *     }
+ * 
+ *     DistributionItem structure:
+ *     {
+ *       date: string,    // ISO date ('YYYY-MM-DD')
+ *       nav: number,     // Net Asset Value at reinvestment
+ *       dist: number     // Total distribution per share (USD)
+ *     }
+ * 
+ * DATA STRUCTURE DETAILS:
+ * - Mutual Funds: Includes all dividend types and capital gains
+ * - Money Market Funds: Daily accrual rates with fixed $1.00 NAV
+ * - Items array empty if no distributions in date range
+ * - NAV represents reinvestment price for mutual funds
+ * 
+ * ERROR HANDLING:
+ * - Returns object with error property for:
+ *   - Invalid tickers
+ *   - Date parsing errors
+ *   - Missing data files
+ * - Errors include descriptive messages for troubleshooting
+ * 
+ * DATA SOURCES:
+ * - Mutual Funds: TSV data with columns:
+ *   Record Date | Calculated Date | Pay Date | Income Dividends | Capital Gains | NAV
+ * - MMF: Daily rate data in TSV format (Rate | As of Date)
+ * 
+ * EXAMPLE USAGE:
+ * 
+ * // Get mutual fund data for 2024
+ * getDistributionData('ANCFX', '2024-01-01', '2024-12-31')
+ *   .then(data => {
+ *     console.log('Distribution items:', data.items);
+ *     console.log('First distribution:', data.items[0]);
+ *   });
+ * 
+ * // Get MMF data for recent period
+ * async function showMMFData() {
+ *   const result = await getDistributionData('AFAXX', '2025-02-01');
+ *   if (result.error) {
+ *     console.error('Error:', result.error);
+ *   } else {
+ *     console.log('Daily rates:', result.items);
+ *   }
+ * }
+ * 
+ * IMPLEMENTATION NOTES:
+ * - Contains two versions:
+ *   1. getDistributionData: Uses embedded sample data for demonstration
+ *   2. getDistributionDataFromFiles: Real-world file fetching implementation
+ * - Date handling:
+ *   - Supports multiple input formats
+ *   - Automatically converts 2-digit years to 21st century
+ *   - Filters results to requested date range
+ * - Currency values stored as floats (USD)
+ * 
+ * DEBUGGING:
+ * - Input validation errors logged to console
+ * - Data parsing issues visible in returned error messages
+ * - Source data available in findFundData() for inspection
+ * 
+ * LIMITATIONS:
+ * - Embedded sample data only includes limited test cases
+ * - MMF calculations assume 360-day year for yield conversions
+ * - Real-world implementation requires proper file hosting
  */
 
 /**
@@ -8,7 +99,7 @@
  * @param {string} ticker - The fund ticker symbol
  * @param {string|Date} startDate - Start date for data range
  * @param {string|Date} endDate - Optional end date for data range, defaults to current date
- * @return {Object} Object containing distribution data
+ * @return {Object} Object containing distribution data items or error
  */
 function getDistributionData(ticker, startDate, endDate = new Date()) {
     // Convert string dates to Date objects if needed
