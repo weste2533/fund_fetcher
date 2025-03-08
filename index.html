@@ -104,6 +104,13 @@
             border-radius: 4px;
             margin-bottom: 15px;
         }
+        .warning-message {
+            color: #f0ad4e;
+            padding: 10px;
+            background-color: #fcf8e3;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
         .data-container {
             max-height: 500px;
             overflow-y: auto;
@@ -129,6 +136,7 @@
         
         <div id="ancfx" class="tab-content active">
             <div class="loading">Loading ANCFX data...</div>
+            <div id="ancfxWarning" class="warning-message" style="display: none;"></div>
             <div class="data-container" style="display: none;">
                 <table>
                     <thead>
@@ -145,6 +153,7 @@
         
         <div id="agthx" class="tab-content">
             <div class="loading">Loading AGTHX data...</div>
+            <div id="agthxWarning" class="warning-message" style="display: none;"></div>
             <div class="data-container" style="display: none;">
                 <table>
                     <thead>
@@ -161,6 +170,7 @@
         
         <div id="afaxx" class="tab-content">
             <div class="loading">Loading AFAXX data...</div>
+            <div id="afaxxWarning" class="warning-message" style="display: none;"></div>
             <div class="data-container" style="display: none;">
                 <table>
                     <thead>
@@ -219,16 +229,26 @@
                     const tabContent = document.getElementById(fundId);
                     tabContent.querySelector('.loading').style.display = 'flex';
                     tabContent.querySelector('.data-container').style.display = 'none';
+                    document.getElementById(`${fundId}Warning`).style.display = 'none';
+                    document.getElementById(`${fundId}Warning`).innerHTML = '';
                     document.getElementById(`${fundId}Data`).innerHTML = '';
                 });
                 
                 try {
-                    // Process each fund
-                    await processANCFX(startDate);
-                    await processAGTHX(startDate);
-                    await processAFAXX(startDate);
+                    // Process each fund independently
+                    processANCFX(startDate).catch(error => {
+                        showWarning('ancfx', `Note: ${error.message}`);
+                    });
+                    
+                    processAGTHX(startDate).catch(error => {
+                        showWarning('agthx', `Note: ${error.message}`);
+                    });
+                    
+                    processAFAXX(startDate).catch(error => {
+                        showWarning('afaxx', `Note: ${error.message}`);
+                    });
                 } catch (error) {
-                    showError(`Failed to fetch fund data: ${error.message}`);
+                    showError(`Failed to initialize fund data: ${error.message}`);
                 }
             }
             
@@ -236,7 +256,23 @@
                 try {
                     await processMutualFund('ANCFX', startDate);
                 } catch (error) {
-                    showError(`Error processing ANCFX: ${error.message}`);
+                    console.error(`Error processing ANCFX: ${error.message}`);
+                    // Try to display at least NAV data if distribution data fails
+                    try {
+                        const navData = await fetchFundData('ANCFX', startDate);
+                        if (navData && Array.isArray(navData)) {
+                            renderFundData('ancfx', navData.map(item => ({
+                                date: item.date,
+                                nav: item.nav,
+                                dist: null
+                            })));
+                            showWarning('ancfx', 'Distribution data unavailable. Showing NAV data only.');
+                        } else {
+                            throw new Error('No NAV data available');
+                        }
+                    } catch (navError) {
+                        throw new Error(`Could not retrieve data: ${error.message}`);
+                    }
                 }
             }
             
@@ -244,74 +280,145 @@
                 try {
                     await processMutualFund('AGTHX', startDate);
                 } catch (error) {
-                    showError(`Error processing AGTHX: ${error.message}`);
+                    console.error(`Error processing AGTHX: ${error.message}`);
+                    // Try to display at least NAV data if distribution data fails
+                    try {
+                        const navData = await fetchFundData('AGTHX', startDate);
+                        if (navData && Array.isArray(navData)) {
+                            renderFundData('agthx', navData.map(item => ({
+                                date: item.date,
+                                nav: item.nav,
+                                dist: null
+                            })));
+                            showWarning('agthx', 'Distribution data unavailable. Showing NAV data only.');
+                        } else {
+                            throw new Error('No NAV data available');
+                        }
+                    } catch (navError) {
+                        throw new Error(`Could not retrieve data: ${error.message}`);
+                    }
                 }
             }
             
             async function processAFAXX(startDate) {
                 try {
-                    // For MMF funds, we only use distribution data
-                    const distributionData = getDistributionDataFromFiles('AFAXX', startDate);
-                    
-                    if (distributionData.error) {
-                        throw new Error(distributionData.error);
+                    // For MMF funds
+                    let distributionData;
+                    try {
+                        distributionData = getDistributionDataFromFiles('AFAXX', startDate);
+                        
+                        if (distributionData.error) {
+                            throw new Error(distributionData.error);
+                        }
+                        
+                        if (!distributionData.items || !Array.isArray(distributionData.items)) {
+                            throw new Error('Distribution data is not in expected format');
+                        }
+                        
+                        renderFundData('afaxx', distributionData.items);
+                    } catch (distError) {
+                        // If distribution data fails, try NAV data
+                        try {
+                            const navData = await fetchFundData('AFAXX', startDate);
+                            if (navData && Array.isArray(navData)) {
+                                renderFundData('afaxx', navData.map(item => ({
+                                    date: item.date,
+                                    nav: item.nav,
+                                    dist: null
+                                })));
+                                showWarning('afaxx', 'Distribution data unavailable. Showing NAV data only.');
+                            } else {
+                                throw new Error('No data available');
+                            }
+                        } catch (navError) {
+                            throw new Error('Both distribution and NAV data unavailable');
+                        }
                     }
-                    
-                    // Check if items array exists
-                    if (!distributionData.items || !Array.isArray(distributionData.items)) {
-                        throw new Error("No distribution data items found");
-                    }
-                    
-                    renderFundData('afaxx', distributionData.items);
                 } catch (error) {
-                    showError(`Error processing AFAXX: ${error.message}`);
-                    
-                    // Display error in AFAXX tab and hide loading indicator
-                    const tabContent = document.getElementById('afaxx');
-                    tabContent.querySelector('.loading').style.display = 'none';
-                    tabContent.querySelector('.data-container').style.display = 'block';
-                    document.getElementById('afaxxData').innerHTML = '<tr><td colspan="3">Failed to load data: ' + error.message + '</td></tr>';
+                    console.error(`Error processing AFAXX: ${error.message}`);
+                    throw error;
                 }
             }
             
             async function processMutualFund(ticker, startDate) {
-                // Get distribution data
-                const distributionData = getDistributionDataFromFiles(ticker, startDate);
+                // Try to get distribution data
+                let distributionItems = [];
+                let distributionError = null;
                 
-                if (distributionData.error) {
-                    throw new Error(distributionData.error);
+                try {
+                    const distributionData = getDistributionDataFromFiles(ticker, startDate);
+                    
+                    if (distributionData.error) {
+                        distributionError = distributionData.error;
+                    } else if (distributionData.items && Array.isArray(distributionData.items)) {
+                        distributionItems = distributionData.items;
+                    } else {
+                        distributionError = 'Distribution data is not in expected format';
+                    }
+                } catch (error) {
+                    distributionError = error.message;
                 }
                 
-                // Check if items array exists
-                if (!distributionData.items || !Array.isArray(distributionData.items)) {
-                    throw new Error("No distribution data items found");
-                }
+                // Try to get NAV data
+                let navItems = [];
+                let navError = null;
                 
-                // Get NAV data
                 try {
                     const navData = await fetchFundData(ticker, startDate);
-                    
-                    // Ensure navData is an array
-                    if (!Array.isArray(navData)) {
-                        throw new Error("Invalid NAV data format");
+                    if (navData && Array.isArray(navData)) {
+                        navItems = navData;
+                    } else {
+                        navError = 'NAV data is not in expected format';
                     }
-                    
-                    // Merge distribution and NAV data
-                    const mergedData = mergeData(distributionData.items, navData);
-                    
-                    // Render the merged data
-                    renderFundData(ticker.toLowerCase(), mergedData);
                 } catch (error) {
-                    // If NAV fetch fails, just use distribution data
-                    console.warn(`NAV data fetch failed for ${ticker}, using distribution data only: ${error.message}`);
-                    renderFundData(ticker.toLowerCase(), distributionData.items);
+                    navError = error.message;
                 }
+                
+                // If both failed, throw error
+                if ((distributionError || distributionItems.length === 0) && 
+                    (navError || navItems.length === 0)) {
+                    throw new Error('Both distribution and NAV data unavailable');
+                }
+                
+                // If only one failed, show warning
+                const fundId = ticker.toLowerCase();
+                if (distributionError || distributionItems.length === 0) {
+                    showWarning(fundId, `Distribution data unavailable: ${distributionError || 'No data returned'}`);
+                }
+                
+                if (navError || navItems.length === 0) {
+                    showWarning(fundId, `NAV data unavailable: ${navError || 'No data returned'}`);
+                }
+                
+                // Use whatever data we have
+                let mergedData = [];
+                
+                if (distributionItems.length > 0 && navItems.length > 0) {
+                    // We have both, merge them
+                    mergedData = mergeData(distributionItems, navItems);
+                } else if (distributionItems.length > 0) {
+                    // We only have distribution data
+                    mergedData = distributionItems;
+                } else {
+                    // We only have NAV data
+                    mergedData = navItems.map(item => ({
+                        date: item.date,
+                        nav: item.nav,
+                        dist: null
+                    }));
+                }
+                
+                // Render whatever data we have
+                renderFundData(fundId, mergedData);
             }
             
             function mergeData(distributionItems, navItems) {
-                // Ensure both inputs are arrays
-                if (!Array.isArray(distributionItems) || !Array.isArray(navItems)) {
-                    return distributionItems || navItems || [];
+                if (!distributionItems || !Array.isArray(distributionItems)) {
+                    distributionItems = [];
+                }
+                
+                if (!navItems || !Array.isArray(navItems)) {
+                    navItems = [];
                 }
                 
                 // Create a map of NAV data by date for quick lookup
@@ -334,14 +441,22 @@
                 const allDates = [...new Set([
                     ...Object.keys(navMap), 
                     ...Object.keys(distMap)
-                ])].sort();
+                ])];
+                
+                // Safety check for empty arrays
+                if (allDates.length === 0) {
+                    return [];
+                }
+                
+                // Sort dates
+                allDates.sort();
                 
                 // Create merged dataset
                 return allDates.map(date => {
                     return {
                         date: date,
                         nav: navMap[date] || (distMap[date] ? distMap[date].nav : null),
-                        dist: distMap[date] ? distMap[date].dist : 0
+                        dist: distMap[date] ? distMap[date].dist : null
                     };
                 });
             }
@@ -354,36 +469,43 @@
                 tabContent.querySelector('.loading').style.display = 'none';
                 tabContent.querySelector('.data-container').style.display = 'block';
                 
-                // Ensure data is an array before sorting
-                if (!Array.isArray(data)) {
-                    tableBody.innerHTML = '<tr><td colspan="3">Invalid data format</td></tr>';
+                // Safety check for data
+                if (!data || !Array.isArray(data)) {
+                    tableBody.innerHTML = '<tr><td colspan="3">No data available</td></tr>';
                     return;
                 }
                 
-                // Sort data by date (newest first)
-                data.sort((a, b) => new Date(b.date) - new Date(a.date));
+                // Sort data by date (newest first) if possible
+                try {
+                    data.sort((a, b) => new Date(b.date) - new Date(a.date));
+                } catch (error) {
+                    console.warn(`Unable to sort data for ${fundId}: ${error.message}`);
+                    // Continue without sorting if there's an error
+                }
                 
                 // Generate table rows
                 let html = '';
-                data.forEach(item => {
-                    html += `
-                        <tr>
-                            <td>${formatDate(item.date)}</td>
-                            <td>${formatValue(item.nav)}</td>
-                            <td>${formatValue(item.dist)}</td>
-                        </tr>
-                    `;
-                });
-                
                 if (data.length === 0) {
                     html = '<tr><td colspan="3">No data available for the selected date range</td></tr>';
+                } else {
+                    data.forEach(item => {
+                        if (item && item.date) {
+                            html += `
+                                <tr>
+                                    <td>${formatDate(item.date)}</td>
+                                    <td>${formatValue(item.nav)}</td>
+                                    <td>${formatValue(item.dist)}</td>
+                                </tr>
+                            `;
+                        }
+                    });
                 }
                 
                 tableBody.innerHTML = html;
             }
             
             function formatDate(dateStr) {
-                if (!dateStr) return 'Invalid Date';
+                if (!dateStr) return 'N/A';
                 
                 try {
                     const date = new Date(dateStr);
@@ -392,8 +514,8 @@
                         month: 'short',
                         day: 'numeric'
                     });
-                } catch (e) {
-                    return dateStr || 'Invalid Date';
+                } catch (error) {
+                    return dateStr; // Return the raw string if parsing fails
                 }
             }
             
@@ -413,6 +535,12 @@
             function showError(message) {
                 const errorContainer = document.getElementById('errorContainer');
                 errorContainer.innerHTML = `<div class="error-message">${message}</div>`;
+            }
+            
+            function showWarning(fundId, message) {
+                const warningContainer = document.getElementById(`${fundId}Warning`);
+                warningContainer.innerHTML = message;
+                warningContainer.style.display = 'block';
             }
         });
     </script>
