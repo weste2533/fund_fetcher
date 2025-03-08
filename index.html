@@ -305,7 +305,7 @@
                     // For MMF funds
                     let distributionData;
                     try {
-                        distributionData = getDistributionDataFromFiles('AFAXX', startDate);
+                        distributionData = getDistributionData('AFAXX', startDate);
                         
                         if (distributionData.error) {
                             throw new Error(distributionData.error);
@@ -346,7 +346,7 @@
                 let distributionError = null;
                 
                 try {
-                    const distributionData = getDistributionDataFromFiles(ticker, startDate);
+                    const distributionData = getDistributionData(ticker, startDate);
                     
                     if (distributionData.error) {
                         distributionError = distributionData.error;
