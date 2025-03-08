@@ -1,6 +1,6 @@
 /**
  * Fund Data Fetcher Module
- * fund-data-fetcher.js
+ * filename = fund-data-fetcher.js
  * Fetches historical NAV (Net Asset Value) data from Yahoo Finance via CORS proxies
  * 
  * USAGE:
