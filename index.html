@@ -3,35 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fund NAV Viewer</title>
+    <title>Fund Data Dashboard</title>
     <style>
         body {
             font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 20px auto;
+            margin: 0;
             padding: 20px;
+            background-color: #f4f4f4;
         }
-        .input-group {
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-top: 0;
+        }
+        .controls {
             margin-bottom: 20px;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 10px;
-        }
-        th, td {
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 5px;
             border: 1px solid #ddd;
+        }
+        .date-picker {
+            margin-right: 15px;
             padding: 8px;
-            text-align: left;
-        }
-        th {
-            background-color: #f2f2f2;
-        }
-        .fund-section {
-            margin-bottom: 30px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
         }
         button {
-            padding: 8px 16px;
+            padding: 8px 15px;
             background-color: #4CAF50;
             color: white;
             border: none;
@@ -41,75 +47,337 @@
         button:hover {
             background-color: #45a049;
         }
+        .tabs {
+            display: flex;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #ddd;
+        }
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            background-color: #f1f1f1;
+            margin-right: 5px;
+            border-radius: 5px 5px 0 0;
+            border: 1px solid #ddd;
+            border-bottom: none;
+        }
+        .tab.active {
+            background-color: white;
+            border-bottom: 2px solid white;
+            position: relative;
+            top: 1px;
+            font-weight: bold;
+        }
+        .tab-content {
+            display: none;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-top: none;
+            border-radius: 0 0 5px 5px;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #f2f2f2;
+            position: sticky;
+            top: 0;
+        }
+        tr:hover {
+            background-color: #f5f5f5;
+        }
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 200px;
+            font-size: 18px;
+            color: #666;
+        }
+        .error-message {
+            color: #d9534f;
+            padding: 10px;
+            background-color: #f9f2f2;
+            border-radius: 4px;
+            margin-bottom: 15px;
+        }
+        .data-container {
+            max-height: 500px;
+            overflow-y: auto;
+        }
     </style>
 </head>
 <body>
-    <h1>Fund NAV Viewer</h1>
-    
-    <div class="input-group">
-        <label for="startDate">Start Date:</label>
-        <input type="date" id="startDate" value="2024-12-31">
-        <button onclick="fetchData()">Get NAV Data</button>
+    <div class="container">
+        <h1>Fund Data Dashboard</h1>
+        
+        <div class="controls">
+            <label for="startDate">Start Date:</label>
+            <input type="date" id="startDate" class="date-picker" value="2024-12-31">
+            <button id="fetchData">Fetch Data</button>
+        </div>
+        
+        <div id="errorContainer"></div>
+        
+        <div class="tabs">
+            <div class="tab active" data-tab="ancfx">ANCFX</div>
+            <div class="tab" data-tab="agthx">AGTHX</div>
+            <div class="tab" data-tab="afaxx">AFAXX</div>
+        </div>
+        
+        <div id="ancfx" class="tab-content active">
+            <div class="loading">Loading ANCFX data...</div>
+            <div class="data-container" style="display: none;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>NAV</th>
+                            <th>Distribution</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ancfxData"></tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div id="agthx" class="tab-content">
+            <div class="loading">Loading AGTHX data...</div>
+            <div class="data-container" style="display: none;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>NAV</th>
+                            <th>Distribution</th>
+                        </tr>
+                    </thead>
+                    <tbody id="agthxData"></tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div id="afaxx" class="tab-content">
+            <div class="loading">Loading AFAXX data...</div>
+            <div class="data-container" style="display: none;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>NAV</th>
+                            <th>Distribution</th>
+                        </tr>
+                    </thead>
+                    <tbody id="afaxxData"></tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
-    <div id="results"></div>
-
+    <!-- Include your JavaScript files -->
+    <script src="process-distributions.js"></script>
     <script src="fund-data-fetcher.js"></script>
+    
     <script>
-        async function fetchData() {
-            const startDate = document.getElementById('startDate').value;
-            const resultsDiv = document.getElementById('results');
-            resultsDiv.innerHTML = '<div>Loading data...</div>';
-
-            try {
-                // Fetch data for both funds simultaneously
-                const [ancfxData, agthxData] = await Promise.all([
-                    fetchFundData('ANCFX', startDate),
-                    fetchFundData('AGTHX', startDate)
-                ]);
-
-                resultsDiv.innerHTML = ''; // Clear loading message
-
-                // Display data in tables
-                resultsDiv.appendChild(createDataSection('ANCFX', ancfxData));
-                resultsDiv.appendChild(createDataSection('AGTHX', agthxData));
-
-            } catch (error) {
-                resultsDiv.innerHTML = `<div style="color: red;">Error: ${error.message}</div>`;
-            }
-        }
-
-        function createDataSection(ticker, data) {
-            const section = document.createElement('div');
-            section.className = 'fund-section';
-            section.innerHTML = `<h3>${ticker} Historical NAV</h3>`;
-
-            if (data.length === 0) {
-                section.innerHTML += '<div>No data available</div>';
-                return section;
-            }
-
-            const table = document.createElement('table');
-            table.innerHTML = `
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>NAV Price</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${data.map(entry => `
-                        <tr>
-                            <td>${entry.date}</td>
-                            <td>${entry.nav?.toFixed(2) ?? 'N/A'}</td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            `;
+        document.addEventListener('DOMContentLoaded', function() {
+            // Tab switching functionality
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    const tabId = this.getAttribute('data-tab');
+                    
+                    // Update active tab
+                    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    // Show active content
+                    document.querySelectorAll('.tab-content').forEach(content => {
+                        content.classList.remove('active');
+                    });
+                    document.getElementById(tabId).classList.add('active');
+                });
+            });
             
-            section.appendChild(table);
-            return section;
-        }
+            // Fetch button click handler
+            document.getElementById('fetchData').addEventListener('click', fetchAllFundData);
+            
+            // Initial data load
+            fetchAllFundData();
+            
+            // Main function to fetch all fund data
+            async function fetchAllFundData() {
+                const startDate = document.getElementById('startDate').value;
+                document.getElementById('errorContainer').innerHTML = '';
+                
+                // Reset data displays
+                const fundIds = ['ancfx', 'agthx', 'afaxx'];
+                fundIds.forEach(fundId => {
+                    const tabContent = document.getElementById(fundId);
+                    tabContent.querySelector('.loading').style.display = 'flex';
+                    tabContent.querySelector('.data-container').style.display = 'none';
+                    document.getElementById(`${fundId}Data`).innerHTML = '';
+                });
+                
+                try {
+                    // Process each fund
+                    await processANCFX(startDate);
+                    await processAGTHX(startDate);
+                    await processAFAXX(startDate);
+                } catch (error) {
+                    showError(`Failed to fetch fund data: ${error.message}`);
+                }
+            }
+            
+            async function processANCFX(startDate) {
+                try {
+                    await processMutualFund('ANCFX', startDate);
+                } catch (error) {
+                    showError(`Error processing ANCFX: ${error.message}`);
+                }
+            }
+            
+            async function processAGTHX(startDate) {
+                try {
+                    await processMutualFund('AGTHX', startDate);
+                } catch (error) {
+                    showError(`Error processing AGTHX: ${error.message}`);
+                }
+            }
+            
+            async function processAFAXX(startDate) {
+                try {
+                    // For MMF funds, we only use distribution data
+                    const distributionData = getDistributionData('AFAXX', startDate);
+                    
+                    if (distributionData.error) {
+                        throw new Error(distributionData.error);
+                    }
+                    
+                    renderFundData('afaxx', distributionData.items);
+                } catch (error) {
+                    showError(`Error processing AFAXX: ${error.message}`);
+                }
+            }
+            
+            async function processMutualFund(ticker, startDate) {
+                // Get distribution data
+                const distributionData = getDistributionData(ticker, startDate);
+                
+                if (distributionData.error) {
+                    throw new Error(distributionData.error);
+                }
+                
+                // Get NAV data
+                try {
+                    const navData = await fetchFundData(ticker, startDate);
+                    
+                    // Merge distribution and NAV data
+                    const mergedData = mergeData(distributionData.items, navData);
+                    
+                    // Render the merged data
+                    renderFundData(ticker.toLowerCase(), mergedData);
+                } catch (error) {
+                    // If NAV fetch fails, just use distribution data
+                    console.warn(`NAV data fetch failed for ${ticker}, using distribution data only`);
+                    renderFundData(ticker.toLowerCase(), distributionData.items);
+                }
+            }
+            
+            function mergeData(distributionItems, navItems) {
+                // Create a map of NAV data by date for quick lookup
+                const navMap = {};
+                navItems.forEach(item => {
+                    navMap[item.date] = item.nav;
+                });
+                
+                // Create a map of distribution data by date
+                const distMap = {};
+                distributionItems.forEach(item => {
+                    distMap[item.date] = item;
+                });
+                
+                // Get all unique dates
+                const allDates = [...new Set([
+                    ...Object.keys(navMap), 
+                    ...Object.keys(distMap)
+                ])].sort();
+                
+                // Create merged dataset
+                return allDates.map(date => {
+                    return {
+                        date: date,
+                        nav: navMap[date] || (distMap[date] ? distMap[date].nav : null),
+                        dist: distMap[date] ? distMap[date].dist : 0
+                    };
+                });
+            }
+            
+            function renderFundData(fundId, data) {
+                const tableBody = document.getElementById(`${fundId}Data`);
+                const tabContent = document.getElementById(fundId);
+                
+                // Hide loading indicator and show data container
+                tabContent.querySelector('.loading').style.display = 'none';
+                tabContent.querySelector('.data-container').style.display = 'block';
+                
+                // Sort data by date (newest first)
+                data.sort((a, b) => new Date(b.date) - new Date(a.date));
+                
+                // Generate table rows
+                let html = '';
+                data.forEach(item => {
+                    html += `
+                        <tr>
+                            <td>${formatDate(item.date)}</td>
+                            <td>${formatValue(item.nav)}</td>
+                            <td>${formatValue(item.dist)}</td>
+                        </tr>
+                    `;
+                });
+                
+                if (data.length === 0) {
+                    html = '<tr><td colspan="3">No data available for the selected date range</td></tr>';
+                }
+                
+                tableBody.innerHTML = html;
+            }
+            
+            function formatDate(dateStr) {
+                const date = new Date(dateStr);
+                return date.toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                });
+            }
+            
+            function formatValue(value) {
+                if (value === null || value === undefined) {
+                    return 'N/A';
+                }
+                
+                // Format as currency if it's a number
+                if (typeof value === 'number') {
+                    return value.toFixed(value < 0.01 ? 6 : 2);
+                }
+                
+                return value;
+            }
+            
+            function showError(message) {
+                const errorContainer = document.getElementById('errorContainer');
+                errorContainer.innerHTML = `<div class="error-message">${message}</div>`;
+            }
+        });
     </script>
 </body>
 </html>
