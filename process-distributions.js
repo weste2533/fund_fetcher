@@ -183,21 +183,42 @@ function isMmfTicker(ticker) {
  * @return {Promise<string>} Promise resolving to the file content
  */
 function fetchDistributionFile(ticker) {
+  console.log(`fetchDistributionFile started for ticker: ${ticker}`);
+  
   return new Promise((resolve, reject) => {
     // In a real implementation, this would use fetch to get the file from the server
     // For GitHub Pages, we'll use the file pattern
     const filePrefix = isMmfTicker(ticker) ? 'mmf' : 'mutual';
     const filename = `${filePrefix}_${ticker}_distributions.txt`;
     
+    console.log(`Determined file prefix: ${filePrefix}`);
+    console.log(`Attempting to fetch file: ${filename}`);
+    
     fetch(filename)
       .then(response => {
+        console.log(`Received response with status: ${response.status} ${response.statusText}`);
         if (!response.ok) {
+          console.error(`Error: Response not OK. Status: ${response.status} ${response.statusText}`);
           throw new Error(`File not found: ${filename}`);
         }
+        console.log('Response OK, retrieving text data...');
         return response.text();
       })
-      .then(data => resolve(data))
-      .catch(error => reject(error));
+      .then(data => {
+        const dataLength = data ? data.length : 0;
+        console.log(`Successfully retrieved data. Length: ${dataLength} characters`);
+        if (dataLength > 0) {
+          console.log(`Data preview (first 100 chars): ${data.substring(0, 100)}...`);
+        } else {
+          console.warn('Warning: Retrieved empty data');
+        }
+        resolve(data);
+      })
+      .catch(error => {
+        console.error(`Fetch error occurred: ${error.message}`);
+        console.error('Full error:', error);
+        reject(error);
+      });
   });
 }
 
