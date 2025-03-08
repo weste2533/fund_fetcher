@@ -8,8 +8,8 @@
  * 
  * Basic Function Call:
  * getDistributionData(ticker, startDate, [endDate])
- *   .then(data => { /* handle data */ })
- *   .catch(error => { /* handle errors */ });
+ *   .then(data => { /* handle data *\/ })
+ *   .catch(error => { /* handle errors *\/ });
  * 
  * PARAMETERS:
  * @param {string} ticker - Fund ticker symbol (case-sensitive)
