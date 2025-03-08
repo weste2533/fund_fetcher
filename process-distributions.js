@@ -107,11 +107,14 @@ function getDistributionData(ticker, startDate, endDate = new Date()) {
       
       // Determine fund type and fetch data
       const filename = `${ticker.toLowerCase().startsWith('mmf_') ? 'mmf' : 'mutual'}_${ticker}_distributions.txt`;
+
+      console.log(`Starting fetch for {filename}`);
       
       fetchDistributionFile(ticker)
         .then(data => {
           if (!data) {
             return resolve({ error: `No data found for ticker ${ticker}`, items: [] });
+            console.log('No data found for ticker ${ticker}');
           }
           
           // Process data based on fund type
