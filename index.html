@@ -142,7 +142,31 @@
             
             statusElement.textContent = `Fetching NAV data for ${ticker}...`;
             
-            // Use the fetchFundData function from the imported module
+            // Handle AFAXX separately (always $1.00 NAV)
+            if (ticker === 'AFAXX') {
+                // Create artificial NAV data for AFAXX with $1.00 value
+                const today = new Date();
+                const startDate = new Date(START_DATE);
+                const data = [];
+                
+                for (let d = new Date(startDate); d <= today; d.setDate(d.getDate() + 1)) {
+                    // Skip weekends
+                    if (d.getDay() !== 0 && d.getDay() !== 6) {
+                        data.push({
+                            date: d.toISOString().split('T')[0],
+                            nav: 1.00
+                        });
+                    }
+                }
+                
+                updateCompletionStatus(true);
+                fundData[ticker].nav = data;
+                statusElement.textContent = `Loaded ${data.length} NAV data points for ${ticker} (fixed at $1.00)`;
+                checkAndMergeData(ticker);
+                return;
+            }
+            
+            // Use the fetchFundData function from the imported module for other funds
             fetchFundData(ticker, START_DATE)
                 .then(data => {
                     updateCompletionStatus(true);
@@ -200,15 +224,15 @@
             const navData = fundData[ticker].nav;
             const distributionData = fundData[ticker].distributions;
             
-            // Only proceed if both data types are available
-            if (navData.length > 0 && distributionData.length > 0) {
+            // Only proceed if NAV data is available
+            if (navData.length > 0) {
                 const containerElement = document.getElementById(`${ticker}-container`);
                 const statusElement = document.getElementById(`${ticker}-status`);
                 
                 statusElement.textContent = `Merging and displaying data for ${ticker}...`;
                 
                 // Merge the data
-                const mergedData = mergeNavAndDistributions(navData, distributionData);
+                const mergedData = mergeNavAndDistributions(navData, distributionData, ticker);
                 
                 // Display the merged data
                 displayMergedData(containerElement, mergedData, ticker);
@@ -218,7 +242,7 @@
         }
         
         // Merge NAV and distribution data
-        function mergeNavAndDistributions(navData, distributionData) {
+        function mergeNavAndDistributions(navData, distributionData, ticker) {
             // Create a map of NAV data by date for quick lookup
             const navByDate = {};
             navData.forEach(item => {
@@ -239,17 +263,19 @@
             
             // Get all unique dates from both datasets
             const allDates = [...new Set([...Object.keys(navByDate), ...Object.keys(distByDate)])];
-            allDates.sort(); // Sort chronologically
+            allDates.sort().reverse(); // Sort chronologically in descending order (newest first)
             
             // Merge the data for each date
             return allDates.map(date => {
                 const navValue = navByDate[date] || null;
                 const dist = distByDate[date] || null;
-                const ratio = dist ? dist.ratio : null;
+                
+                // Set reinvestment ratio to 0 when no distribution data is available
+                const ratio = dist ? dist.ratio : 0;
                 
                 return {
                     date: date,
-                    nav: navValue,
+                    nav: ticker === 'AFAXX' ? 1.00 : navValue, // Ensure AFAXX always has NAV of $1.00
                     distRatio: ratio
                 };
             });
@@ -295,7 +321,7 @@
                         <tr>
                             <td>${item.date}</td>
                             <td>${item.nav ? '$' + item.nav.toFixed(2) : 'N/A'}</td>
-                            <td>${item.distRatio ? item.distRatio.toFixed(6) : 'N/A'}</td>
+                            <td>${item.distRatio !== null ? item.distRatio.toFixed(6) : 'N/A'}</td>
                         </tr>
                     `).join('')}
                 </tbody>
