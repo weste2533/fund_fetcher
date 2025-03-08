@@ -3,57 +3,10 @@
  * filename = process-distributions.js
  * Processes historical distribution data for mutual funds and money market funds (MMF),
  * providing normalized output for dividend payments and capital gains distributions.
- * 
- * USAGE:
- * 
- * Basic Function Call:
- * getDistributionData(ticker, startDate, [endDate])
- *   .then(data => { /* handle data */ })
- *   .catch(error => { /* handle errors */ });
- * 
- * PARAMETERS:
- * @param {string} ticker - Fund ticker symbol (case-sensitive)
- *     Examples: 'ANCFX' (Mutual Fund), 'AFAXX' (Money Market Fund)
- * 
- * @param {string|Date} startDate - Start date for historical data
- *     - String format: 'YYYY-MM-DD' or 'MM/DD/YYYY'
- *     - Date object: JavaScript Date instance
- * 
- * @param {string|Date} [endDate] - Optional end date (default: current date)
- *     - Same format as startDate
- * 
- * RETURNS:
- * @returns {Object} - Structured distribution data containing:
- *     {
- *       items: Array<DistributionItem> // Sorted chronologically (oldest first)
- *       error?: string                 // Present if error occurred
- *     }
- * 
- *     DistributionItem structure:
- *     {
- *       date: string,    // ISO date ('YYYY-MM-DD')
- *       nav: number,     // Net Asset Value at reinvestment
- *       dist: number     // Total distribution per share (USD)
- *     }
- * 
- * DATA STRUCTURE DETAILS:
- * - Mutual Funds: Includes all dividend types and capital gains
- * - Money Market Funds: Daily accrual rates with fixed $1.00 NAV
- * - Items array empty if no distributions in date range
- * - NAV represents reinvestment price for mutual funds
- * 
- * ERROR HANDLING:
- * - Returns object with error property for:
- *   - Invalid tickers
- *   - Date parsing errors
- *   - Missing data files
- * - Errors include descriptive messages for troubleshooting
- * 
- * DATA SOURCES:
- * - Mutual Funds: TSV data with columns:
- *   Record Date | Calculated Date | Pay Date | Income Dividends | Capital Gains | NAV
- * - MMF: Daily rate data in TSV format (Rate | As of Date)
  */
+
+// Ensure the function is defined in the global scope for browser environments
+let getDistributionData;
 
 /**
  * Main function to get distribution data for a specified ticker and date range
@@ -62,7 +15,7 @@
  * @param {string|Date} endDate - Optional end date for data range, defaults to current date
  * @return {Promise<Object>} Promise resolving to object containing distribution data items or error
  */
-async function getDistributionData(ticker, startDate, endDate = new Date()) {
+getDistributionData = async function(ticker, startDate, endDate = new Date()) {
     // Convert string dates to Date objects if needed
     startDate = startDate instanceof Date ? startDate : new Date(startDate);
     endDate = endDate instanceof Date ? endDate : new Date(endDate);
@@ -86,7 +39,7 @@ async function getDistributionData(ticker, startDate, endDate = new Date()) {
     } catch (error) {
         return { error: `Error processing data: ${error.message}` };
     }
-}
+};
 
 /**
  * Find the fund data for a specific ticker by reading from text files
@@ -272,15 +225,24 @@ async function exampleUsage() {
     }
 }
 
-// For browser usage
+// For browser usage - make sure all functions are globally available
 if (typeof window !== 'undefined') {
     window.getDistributionData = getDistributionData;
+    window.findFundData = findFundData;
+    window.processMMFData = processMMFData;
+    window.processMutualFundData = processMutualFundData;
+    window.readFileContent = readFileContent;
     window.exampleUsage = exampleUsage;
 }
 
 // For Node.js usage
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
-        getDistributionData
+        getDistributionData,
+        findFundData,
+        processMMFData,
+        processMutualFundData,
+        readFileContent,
+        exampleUsage
     };
 }
