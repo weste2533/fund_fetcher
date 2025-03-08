@@ -8,8 +8,8 @@
  * 
  * Basic Function Call:
  * getDistributionData(ticker, startDate, [endDate])
- *   .then(data => { /* handle data *\/ })
- *   .catch(error => { /* handle errors *\/ });
+ *   .then(data => { /* handle data */ })
+ *   .catch(error => { /* handle errors */ });
  * 
  * PARAMETERS:
  * @param {string} ticker - Fund ticker symbol (case-sensitive)
@@ -23,7 +23,7 @@
  *     - Same format as startDate
  * 
  * RETURNS:
- * @returns {Object} - Structured distribution data containing:
+ * @returns {Promise<Object>} - Structured distribution data containing:
  *     {
  *       items: Array<DistributionItem> // Sorted chronologically (oldest first)
  *       error?: string                 // Present if error occurred
@@ -72,26 +72,6 @@
  *     console.log('Daily rates:', result.items);
  *   }
  * }
- * 
- * IMPLEMENTATION NOTES:
- * - Contains two versions:
- *   1. getDistributionData: Uses embedded sample data for demonstration
- *   2. getDistributionDataFromFiles: Real-world file fetching implementation
- * - Date handling:
- *   - Supports multiple input formats
- *   - Automatically converts 2-digit years to 21st century
- *   - Filters results to requested date range
- * - Currency values stored as floats (USD)
- * 
- * DEBUGGING:
- * - Input validation errors logged to console
- * - Data parsing issues visible in returned error messages
- * - Source data available in findFundData() for inspection
- * 
- * LIMITATIONS:
- * - Embedded sample data only includes limited test cases
- * - MMF calculations assume 360-day year for yield conversions
- * - Real-world implementation requires proper file hosting
  */
 
 /**
@@ -99,90 +79,75 @@
  * @param {string} ticker - The fund ticker symbol
  * @param {string|Date} startDate - Start date for data range
  * @param {string|Date} endDate - Optional end date for data range, defaults to current date
- * @return {Object} Object containing distribution data items or error
+ * @return {Promise<Object>} Promise resolving to object containing distribution data items or error
  */
-function getDistributionData(ticker, startDate, endDate = new Date()) {
-    // Convert string dates to Date objects if needed
-    startDate = startDate instanceof Date ? startDate : new Date(startDate);
-    endDate = endDate instanceof Date ? endDate : new Date(endDate);
-    
-    // Determine fund type and get appropriate data
-    const fundData = findFundData(ticker);
-    
-    if (!fundData) {
-        return { error: `No data found for ticker ${ticker}` };
-    }
-    
-    // Process data based on fund type
-    if (fundData.type === 'mmf') {
-        return processMMFData(fundData.data, startDate, endDate);
-    } else if (fundData.type === 'mutual') {
-        return processMutualFundData(fundData.data, startDate, endDate);
-    }
-    
-    return { error: 'Unknown fund type' };
-}
-
-/**
- * Find the fund data for a specific ticker
- * @param {string} ticker - The fund ticker symbol
- * @return {Object|null} Fund data and type, or null if not found
- */
-function findFundData(ticker) {
-    // This would normally read from files, but for demonstration we'll use the provided data
-    const fundsData = {
-        'ANCFX': {
-            type: 'mutual',
-            data: `Record Date\tCalculated Date\tPay Date\tIncome Dividend Regular\tIncome Dividend Special\tCap. Gains Long-Term\tCap. Gains Short-Term\tReinvest NAV
-03/13/24\t03/13/24\t03/14/24\t$0.17\t$0.00\t$0.00\t$0.00\t$77.91
-06/12/24\t06/12/24\t06/13/24\t$0.17\t$0.00\t$0.498\t$0.00\t$80.73
-09/18/24\t09/18/24\t09/19/24\t$0.17\t$0.00\t$0.00\t$0.00\t$83.16
-12/18/24\t12/18/24\t12/19/24\t$0.17\t$0.238\t$5.7645\t$0.00\t$81.01
-01/17/25\t01/17/25\t01/18/24\t$0.17\t$0.238\t$5.7645\t$0.00\t$83.38`
-        },
-        'AGTHX': {
-            type: 'mutual',
-            data: `Record Date\tCalculated Date\tPay Date\tIncome Dividend Regular\tIncome Dividend Special\tCap. Gains Long-Term\tCap. Gains Short-Term\tReinvest NAV
-12/18/24\t12/18/24\t12/19/24\t$0.31\t$0.00\t$6.381\t$0.00\t$74.88
-01/17/25\t01/17/25\t01/18/25\t$0.31\t$0.00\t$6.381\t$0.00\t$76.98`
-        },
-        'AFAXX': {
-            type: 'mmf',
-            data: generateMMFDataObject()
+async function getDistributionData(ticker, startDate, endDate = new Date()) {
+    try {
+        // Convert string dates to Date objects if needed
+        startDate = startDate instanceof Date ? startDate : new Date(startDate);
+        endDate = endDate instanceof Date ? endDate : new Date(endDate);
+        
+        // Fetch the fund data
+        const fundData = await fetchFundData(ticker);
+        
+        if (!fundData) {
+            return { 
+                error: `No data found for ticker ${ticker}`,
+                items: [] 
+            };
         }
-    };
-    
-    return fundsData[ticker] || null;
+        
+        // Process data based on fund type
+        if (fundData.type === 'mmf') {
+            return processMMFData(fundData.data, startDate, endDate);
+        } else if (fundData.type === 'mutual') {
+            return processMutualFundData(fundData.data, startDate, endDate);
+        }
+        
+        return { 
+            error: 'Unknown fund type',
+            items: [] 
+        };
+    } catch (error) {
+        console.error(`Error processing distribution data: ${error.message}`);
+        return {
+            error: `Failed to process data: ${error.message}`,
+            items: []
+        };
+    }
 }
 
 /**
- * Generate a data object from the MMF text file format
- * @return {Object} Structured MMF data
+ * Fetch fund data from the appropriate file based on ticker
+ * @param {string} ticker - The fund ticker
+ * @return {Promise<Object|null>} Promise resolving to fund data and type, or null if not found
  */
-function generateMMFDataObject() {
-    // This would normally parse the file, but for demonstration we'll use a small sample
-    const mmfSampleLines = [
-        "Rate\tAs of Date",
-        "0.00026731\t01/02/2024",
-        "0.00013392\t01/03/2024",
-        "0.00013540\t01/04/2024",
-        // Add more recent entries to demonstrate cutoff functionality
-        "0.00010609\t02/11/2025",
-        "0.00010599\t02/12/2025",
-        "0.00010600\t02/13/2025",
-        "0.00010577\t02/14/2025",
-        "0.00042388\t02/18/2025",
-        "0.00010597\t02/19/2025",
-        "0.00010562\t02/20/2025",
-        "0.00010590\t02/21/2025",
-        "0.00030173\t02/24/2025",
-        "0.00010574\t02/25/2025",
-        "0.00010570\t02/26/2025",
-        "0.00010551\t02/27/2025",
-        "0.00010574\t02/28/2025"
-    ].join("\n");
-    
-    return mmfSampleLines;
+async function fetchFundData(ticker) {
+    try {
+        // Determine file path based on ticker
+        let filePath;
+        let fundType;
+        
+        if (ticker.startsWith('AF')) {
+            filePath = `mmf_${ticker}_distributions.txt`;
+            fundType = 'mmf';
+        } else {
+            filePath = `mutual_${ticker}_distributions.txt`;
+            fundType = 'mutual';
+        }
+        
+        // Fetch the file
+        const response = await fetch(filePath);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch ${filePath} (Status: ${response.status})`);
+        }
+        
+        const data = await response.text();
+        return { type: fundType, data: data };
+    } catch (error) {
+        console.error(`Error fetching fund data: ${error.message}`);
+        return null;
+    }
 }
 
 /**
@@ -217,6 +182,9 @@ function processMMFData(data, startDate, endDate) {
         }
     }
     
+    // Sort items by date (oldest first)
+    result.items.sort((a, b) => new Date(a.date) - new Date(b.date));
+    
     return result;
 }
 
@@ -247,11 +215,11 @@ function processMutualFundData(data, startDate, endDate) {
         // Check if date is within range
         if (date >= startDate && date <= endDate) {
             // Calculate total distribution amount (all dividends + all capital gains)
-            const regDividend = parseFloat(parts[3].replace('$', ''));
-            const specDividend = parseFloat(parts[4].replace('$', ''));
-            const longTermGains = parseFloat(parts[5].replace('$', ''));
-            const shortTermGains = parseFloat(parts[6].replace('$', ''));
-            const nav = parseFloat(parts[7].replace('$', ''));
+            const regDividend = parseFloat(parts[3].replace('$', '')) || 0;
+            const specDividend = parseFloat(parts[4].replace('$', '')) || 0;
+            const longTermGains = parseFloat(parts[5].replace('$', '')) || 0;
+            const shortTermGains = parseFloat(parts[6].replace('$', '')) || 0;
+            const nav = parseFloat(parts[7].replace('$', '')) || 0;
             
             const totalDist = regDividend + specDividend + longTermGains + shortTermGains;
             
@@ -262,6 +230,9 @@ function processMutualFundData(data, startDate, endDate) {
             });
         }
     }
+    
+    // Sort items by date (oldest first)
+    result.items.sort((a, b) => new Date(a.date) - new Date(b.date));
     
     return result;
 }
@@ -278,76 +249,14 @@ function formatDate(date) {
     return `${year}-${month}-${day}`;
 }
 
-/**
- * Reads actual text file data from the server
- * In a real-world scenario, this would fetch the file based on the ticker
- * @param {string} ticker - The fund ticker
- * @return {Promise<Object>} Fund data and type
- */
-async function fetchFundData(ticker) {
-    try {
-        // Determine file path based on ticker
-        let filePath;
-        let fundType;
-        
-        if (ticker.startsWith('AF')) {
-            filePath = `mmf_${ticker}_distributions.txt`;
-            fundType = 'mmf';
-        } else {
-            filePath = `mutual_${ticker}_distributions.txt`;
-            fundType = 'mutual';
-        }
-        
-        // Fetch the file
-        const response = await fetch(filePath);
-        if (!response.ok) {
-            throw new Error(`Failed to fetch ${filePath}`);
-        }
-        
-        const data = await response.text();
-        return { type: fundType, data: data };
-    } catch (error) {
-        console.error(`Error fetching fund data: ${error.message}`);
-        return null;
-    }
-}
-
-/**
- * The actual implementation that would be used in a real-world scenario
- * This version fetches the data from actual text files
- */
-async function getDistributionDataFromFiles(ticker, startDate, endDate = new Date()) {
-    // Convert string dates to Date objects if needed
-    startDate = startDate instanceof Date ? startDate : new Date(startDate);
-    endDate = endDate instanceof Date ? endDate : new Date(endDate);
-    
-    // Fetch the fund data
-    const fundData = await fetchFundData(ticker);
-    
-    if (!fundData) {
-        return { error: `No data found for ticker ${ticker}` };
-    }
-    
-    // Process data based on fund type
-    if (fundData.type === 'mmf') {
-        return processMMFData(fundData.data, startDate, endDate);
-    } else if (fundData.type === 'mutual') {
-        return processMutualFundData(fundData.data, startDate, endDate);
-    }
-    
-    return { error: 'Unknown fund type' };
-}
-
 // For browser usage
 if (typeof window !== 'undefined') {
     window.getDistributionData = getDistributionData;
-    window.getDistributionDataFromFiles = getDistributionDataFromFiles;
 }
 
 // For Node.js usage
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
-        getDistributionData,
-        getDistributionDataFromFiles
+        getDistributionData
     };
 }
