@@ -189,10 +189,13 @@ function fetchDistributionFile(ticker) {
     const filePrefix = isMmfTicker(ticker) ? 'mmf' : 'mutual';
     const filename = `${filePrefix}_${ticker}_distributions.txt`;
     
-    // For GitHub Pages, the file should be in the same folder structure as your HTML
-    console.log(`Attempting to fetch file: ${filename}`);
+    // Use the raw GitHub URL
+    const baseUrl = 'https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/';
+    const fileUrl = baseUrl + filename;
     
-    fetch(filename)
+    console.log(`Attempting to fetch file: ${fileUrl}`);
+    
+    fetch(fileUrl)
       .then(response => {
         console.log(`Received response with status: ${response.status} ${response.statusText}`);
         if (!response.ok) {
