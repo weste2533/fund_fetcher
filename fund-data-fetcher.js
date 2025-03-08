@@ -1,32 +1,7 @@
 /**
- * Fund Data Fetcher
+ * Fund Data Fetcher (with Debug Logging)
  * 
- * This module fetches historical Net Asset Value (NAV) data for mutual funds
- * from Yahoo Finance and returns it in a simplified date/NAV format.
- * 
- * FUNCTIONS:
- * 
- * fetchFundData(ticker, startDate, endDate = null)
- *   Fetches historical NAV data for a specified fund within a date range.
- *   
- *   Parameters:
- *     - ticker (String): The fund's ticker symbol (e.g., 'ANCFX', 'AGTHX')
- *     - startDate (String or Date): Start date in 'YYYY-MM-DD' format or Date object
- *     - endDate (String or Date, optional): End date in 'YYYY-MM-DD' format or Date object,
- *                                           defaults to current date if not provided
- *   
- *   Returns:
- *     - Promise that resolves to an Array of objects, each containing:
- *       {
- *         date: String (in 'YYYY-MM-DD' format),
- *         nav: Number (the fund's NAV value)
- *       }
- * 
- * USAGE EXAMPLE:
- * 
- * fetchFundData('ANCFX', '2024-01-01')
- *   .then(data => console.log(data))
- *   .catch(error => console.error('Error:', error));
+ * This module fetches historical NAV data and logs data structures to console.
  */
 
 // List of CORS proxies to try (will attempt each in order until success)
@@ -37,14 +12,6 @@ const PROXIES = [
     "https://cors-anywhere.herokuapp.com/"
 ];
 
-/**
- * Fetches fund NAV data from Yahoo Finance for the specified ticker and date range
- * 
- * @param {string} ticker - Fund ticker symbol (e.g., 'ANCFX')
- * @param {string|Date} startDate - Start date in 'YYYY-MM-DD' format or Date object
- * @param {string|Date|null} endDate - End date (optional, defaults to current date)
- * @returns {Promise<Array>} - Promise resolving to array of {date, nav} objects
- */
 async function fetchFundData(ticker, startDate, endDate = null) {
     // Convert date parameters to Date objects if they're strings
     const start = startDate instanceof Date ? startDate : new Date(startDate);
@@ -58,51 +25,70 @@ async function fetchFundData(ticker, startDate, endDate = null) {
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?period1=${period1}&period2=${period2}&interval=1d`;
     
     try {
-        // Fetch data using proxy
+        console.log(`Starting fetch for ${ticker} from ${start.toISOString()} to ${end.toISOString()}`);
         const data = await fetchWithProxy(url);
         
-        // Process the response
+        // Log raw response structure
+        console.log(`RAW YAHOO RESPONSE FOR ${ticker}:`, JSON.parse(JSON.stringify(data)));
+        
         if (!data || !data.chart || !data.chart.result || data.chart.result.length === 0) {
             throw new Error('Invalid or empty response from Yahoo Finance');
         }
         
         const result = data.chart.result[0];
+        // Log chart result structure
+        console.log(`CHART RESULT STRUCTURE FOR ${ticker}:`, {
+            meta: result.meta,
+            timestamp: result.timestamp?.length,
+            indicators: Object.keys(result.indicators?.quote?.[0] || {})
+        });
+        
         const timestamps = result.timestamp || [];
         const prices = result.indicators?.quote?.[0]?.close || [];
         
-        // Create an array of {date, nav} objects
-        return timestamps.map((timestamp, index) => {
+        // Create processed data array
+        const processedData = timestamps.map((timestamp, index) => {
             const date = new Date(timestamp * 1000);
             return {
                 date: formatDate(date),
                 nav: prices[index]
             };
         });
+
+        // Log final processed data structure
+        console.log(`PROCESSED DATA FOR ${ticker}:`, {
+            dataPoints: processedData.length,
+            firstEntry: processedData[0],
+            lastEntry: processedData[processedData.length - 1]
+        });
+        
+        return processedData;
     } catch (error) {
+        console.error(`ERROR STRUCTURE FOR ${ticker}:`, {
+            name: error.name,
+            message: error.message,
+            stack: error.stack?.split('\n')[0]
+        });
         throw new Error(`Failed to fetch data for ${ticker}: ${error.message}`);
     }
 }
 
-/**
- * Attempts to fetch data using multiple CORS proxies
- * 
- * @param {string} url - The URL to fetch
- * @returns {Promise<Object>} - The parsed JSON response
- */
 async function fetchWithProxy(url) {
     for (let proxyIndex = 0; proxyIndex < PROXIES.length; proxyIndex++) {
         const proxyUrl = PROXIES[proxyIndex] + encodeURIComponent(url);
+        console.log(`Attempting proxy #${proxyIndex + 1}: ${PROXIES[proxyIndex]}`);
         
         try {
             const response = await fetch(proxyUrl, { cache: 'no-cache' });
+            console.log(`Proxy #${proxyIndex + 1} response status: ${response.status}`);
             
             if (!response.ok) {
                 throw new Error(`HTTP error: ${response.status}`);
             }
             
             const text = await response.text();
+            console.log(`Proxy #${proxyIndex + 1} response length: ${text.length} chars`);
             
-            // Handle allorigins.win specific response format
             if (proxyUrl.includes('allorigins.win')) {
                 const jsonResponse = JSON.parse(text);
                 if (jsonResponse.contents) {
@@ -112,7 +98,7 @@ async function fetchWithProxy(url) {
             
             return JSON.parse(text);
         } catch (error) {
-            // Try next proxy if this one fails
+            console.warn(`Proxy #${proxyIndex + 1} failed: ${error.message}`);
             continue;
         }
     }
@@ -120,12 +106,6 @@ async function fetchWithProxy(url) {
     throw new Error('All proxies failed to fetch data');
 }
 
-/**
- * Formats a Date object to YYYY-MM-DD string
- * 
- * @param {Date} date - The date to format
- * @returns {string} - Formatted date string
- */
 function formatDate(date) {
     return date.toISOString().split('T')[0];
 }
