@@ -257,9 +257,20 @@
                         throw new Error(distributionData.error);
                     }
                     
+                    // Check if items array exists
+                    if (!distributionData.items || !Array.isArray(distributionData.items)) {
+                        throw new Error("No distribution data items found");
+                    }
+                    
                     renderFundData('afaxx', distributionData.items);
                 } catch (error) {
                     showError(`Error processing AFAXX: ${error.message}`);
+                    
+                    // Display error in AFAXX tab and hide loading indicator
+                    const tabContent = document.getElementById('afaxx');
+                    tabContent.querySelector('.loading').style.display = 'none';
+                    tabContent.querySelector('.data-container').style.display = 'block';
+                    document.getElementById('afaxxData').innerHTML = '<tr><td colspan="3">Failed to load data: ' + error.message + '</td></tr>';
                 }
             }
             
@@ -271,9 +282,19 @@
                     throw new Error(distributionData.error);
                 }
                 
+                // Check if items array exists
+                if (!distributionData.items || !Array.isArray(distributionData.items)) {
+                    throw new Error("No distribution data items found");
+                }
+                
                 // Get NAV data
                 try {
                     const navData = await fetchFundData(ticker, startDate);
+                    
+                    // Ensure navData is an array
+                    if (!Array.isArray(navData)) {
+                        throw new Error("Invalid NAV data format");
+                    }
                     
                     // Merge distribution and NAV data
                     const mergedData = mergeData(distributionData.items, navData);
@@ -282,22 +303,31 @@
                     renderFundData(ticker.toLowerCase(), mergedData);
                 } catch (error) {
                     // If NAV fetch fails, just use distribution data
-                    console.warn(`NAV data fetch failed for ${ticker}, using distribution data only`);
+                    console.warn(`NAV data fetch failed for ${ticker}, using distribution data only: ${error.message}`);
                     renderFundData(ticker.toLowerCase(), distributionData.items);
                 }
             }
             
             function mergeData(distributionItems, navItems) {
+                // Ensure both inputs are arrays
+                if (!Array.isArray(distributionItems) || !Array.isArray(navItems)) {
+                    return distributionItems || navItems || [];
+                }
+                
                 // Create a map of NAV data by date for quick lookup
                 const navMap = {};
                 navItems.forEach(item => {
-                    navMap[item.date] = item.nav;
+                    if (item && item.date) {
+                        navMap[item.date] = item.nav;
+                    }
                 });
                 
                 // Create a map of distribution data by date
                 const distMap = {};
                 distributionItems.forEach(item => {
-                    distMap[item.date] = item;
+                    if (item && item.date) {
+                        distMap[item.date] = item;
+                    }
                 });
                 
                 // Get all unique dates
@@ -324,6 +354,12 @@
                 tabContent.querySelector('.loading').style.display = 'none';
                 tabContent.querySelector('.data-container').style.display = 'block';
                 
+                // Ensure data is an array before sorting
+                if (!Array.isArray(data)) {
+                    tableBody.innerHTML = '<tr><td colspan="3">Invalid data format</td></tr>';
+                    return;
+                }
+                
                 // Sort data by date (newest first)
                 data.sort((a, b) => new Date(b.date) - new Date(a.date));
                 
@@ -347,12 +383,18 @@
             }
             
             function formatDate(dateStr) {
-                const date = new Date(dateStr);
-                return date.toLocaleDateString('en-US', {
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric'
-                });
+                if (!dateStr) return 'Invalid Date';
+                
+                try {
+                    const date = new Date(dateStr);
+                    return date.toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric'
+                    });
+                } catch (e) {
+                    return dateStr || 'Invalid Date';
+                }
             }
             
             function formatValue(value) {
