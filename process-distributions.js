@@ -315,53 +315,69 @@ function parseMmfData(data, startDate, endDate) {
  * @return {Array} Array of distribution items
  */
 function parseMutualFundData(data, startDate, endDate) {
+  console.log('Starting mutual fund data parsing');
   const lines = data.trim().split('\n');
+  console.log(`Found ${lines.length} lines of data`);
   
   // Skip header line
   const items = [];
   
+  // Log the header to see column structure
+  console.log('Header row:', lines[0]);
+  
   for (let i = 1; i < lines.length; i++) {
     const parts = lines[i].split('\t');
+    console.log(`Processing line ${i}, found ${parts.length} columns`);
+    
+    // Your actual data format is:
+    // Record Date | Calculated Date | Pay Date | Income Dividend Regular | Income Dividend Special | Cap. Gains Long-Term | Cap. Gains Short-Term | Reinvest NAV
     
     // MM/DD/YY format expected for record date
     let recordDateStr = parts[0];
+    console.log(`Record date string: ${recordDateStr}`);
     
-    // Try to parse date in MM/DD/YY format
-    let recordDate;
-    if (recordDateStr.includes('/')) {
-      const [month, day, year] = recordDateStr.split('/').map(Number);
-      recordDate = new Date(2000 + year, month - 1, day); // Assumes 20xx for year
-    } else {
-      // Alternative format like MM/DD/YYYY
-      recordDate = new Date(recordDateStr);
-    }
+    // Try to parse date (handle multiple formats)
+    let recordDate = parseCustomDate(recordDateStr);
     
     // Check if valid date could be parsed
-    if (isNaN(recordDate)) {
-      continue; // Skip invalid dates
+    if (!recordDate || isNaN(recordDate)) {
+      console.warn(`Skipping row ${i}: Invalid date format: ${recordDateStr}`);
+      continue;
     }
+    
+    console.log(`Parsed record date: ${recordDate.toISOString()}`);
     
     // Check if in date range
     if (recordDate >= startDate && recordDate <= endDate) {
       // Parse numeric values with dollar signs
-      const incomeDividendRegular = parseFloat(parts[3].replace('$', '')) || 0;
-      const incomeDividendSpecial = parseFloat(parts[4].replace('$', '')) || 0;
-      const capGainsLongTerm = parseFloat(parts[5].replace('$', '')) || 0;
-      const capGainsShortTerm = parseFloat(parts[6].replace('$', '')) || 0;
-      const nav = parseFloat(parts[7].replace('$', '')) || 0;
+      // Fixed indices to match your actual data structure
+      const incomeDividendRegular = parseFloat((parts[3] || '0').replace('$', '')) || 0;
+      const incomeDividendSpecial = parseFloat((parts[4] || '0').replace('$', '')) || 0;
+      const capGainsLongTerm = parseFloat((parts[5] || '0').replace('$', '')) || 0;
+      const capGainsShortTerm = parseFloat((parts[6] || '0').replace('$', '')) || 0;
+      const nav = parseFloat((parts[7] || '0').replace('$', '')) || 0;
+      
+      console.log(`Parsed values: Regular dividend=${incomeDividendRegular}, Special=${incomeDividendSpecial}, LT gains=${capGainsLongTerm}, ST gains=${capGainsShortTerm}, NAV=${nav}`);
       
       // Calculate total distribution
       const totalDist = incomeDividendRegular + incomeDividendSpecial + 
-                         capGainsLongTerm + capGainsShortTerm;
+                        capGainsLongTerm + capGainsShortTerm;
+      
+      console.log(`Total distribution: ${totalDist}`);
       
       items.push({
         date: formatISODate(recordDate),
         nav: nav,
         dist: totalDist
       });
+      
+      console.log(`Added item for date ${formatISODate(recordDate)}`);
+    } else {
+      console.log(`Date out of requested range: ${recordDate.toISOString()}`);
     }
   }
   
+  console.log(`Total items found in range: ${items.length}`);
   return items;
 }
 
@@ -380,9 +396,16 @@ function parseCustomDate(dateString) {
   }
   
   // Try MM/DD/YYYY format
-  if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateString)) {
+  if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateString)) {
     const [month, day, year] = dateString.split('/').map(Number);
     return new Date(year, month - 1, day);
+  }
+  
+  // Handle format like "03/13/24" (from your data)
+  if (/^\d{2}\/\d{2}\/\d{2}$/.test(dateString)) {
+    const [month, day, year] = dateString.split('/').map(Number);
+    // Assume 20xx for two-digit years
+    return new Date(2000 + year, month - 1, day);
   }
   
   // Try other formats
