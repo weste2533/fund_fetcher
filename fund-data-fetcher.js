@@ -1,7 +1,95 @@
 /**
- * Fund Data Fetcher (with Debug Logging)
+ * Fund Data Fetcher Module
  * 
- * This module fetches historical NAV data and logs data structures to console.
+ * Fetches historical NAV (Net Asset Value) data from Yahoo Finance via CORS proxies
+ * 
+ * USAGE:
+ * 
+ * Basic Function Call:
+ * fetchFundData(ticker, startDate, [endDate])
+ *   .then(data => { /* handle data *\/ })
+ *   .catch(error => { /* handle errors *\/ });
+ * 
+ * PARAMETERS:
+ * @param {string} ticker - Mutual fund ticker symbol (case-sensitive)
+ *     Examples: 'ANCFX' (American Funds), 'AGTHX' (Growth Fund of America)
+ * 
+ * @param {string|Date} startDate - Start date for historical data
+ *     - String format: 'YYYY-MM-DD' (e.g., '2024-01-01')
+ *     - Date object: JavaScript Date instance
+ * 
+ * @param {string|Date} [endDate] - Optional end date (default: current date)
+ *     - Same format as startDate
+ *     - Omit for data up to current date
+ * 
+ * RETURNS:
+ * @returns {Promise<Array<NavDataPoint>>} - Promise resolving to array of:
+ *     [
+ *       {
+ *         date: string, // ISO date string ('YYYY-MM-DD')
+ *         nav: number   // NAV value (USD)
+ *       },
+ *       ...
+ *     ]
+ * 
+ *     Empty array returned if no data available for date range
+ * 
+ * DATA STRUCTURE DETAILS:
+ * - Output array is sorted in chronological order (oldest first)
+ * - Missing NAV values will be `null` in the nav property
+ * - Weekend/holiday dates excluded (only trading days returned)
+ * 
+ * ERROR HANDLING:
+ * - Throws errors for:
+ *   - Invalid tickers
+ *   - Network failures
+ *   - Invalid date formats
+ *   - Empty API responses
+ * - Always wrap calls in try/catch or .catch()
+ * 
+ * CORS PROXIES:
+ * - Automatically cycles through multiple proxies:
+ *   1. api.allorigins.win
+ *   2. corsproxy.io
+ *   3. thingproxy.freeboard.io
+ *   4. cors-anywhere.herokuapp.com
+ * - First working proxy is used for request
+ * 
+ * EXAMPLE USAGE:
+ * 
+ * // Get data for ANCFX from Jan 1 2024 to now
+ * fetchFundData('ANCFX', '2024-01-01')
+ *   .then(data => console.log('ANCFX Data:', data))
+ *   .catch(console.error);
+ * 
+ * // Get data for AGTHX for specific date range
+ * const start = new Date('2023-06-01');
+ * const end = '2023-12-31';
+ * fetchFundData('AGTHX', start, end)
+ *   .then(data => {
+ *     console.log(`Found ${data.length} data points`);
+ *     console.log('First entry:', data[0]);
+ *   });
+ * 
+ * // Using async/await
+ * async function getFundData() {
+ *   try {
+ *     const data = await fetchFundData('ANCFX', '2024-01-01');
+ *     // Process data
+ *   } catch(error) {
+ *     console.error('Fetch failed:', error);
+ *   }
+ * }
+ * 
+ * DEBUGGING:
+ * - All network requests logged to console
+ * - Raw API response structure visible in console
+ * - Data processing steps logged (filter with 'fund-data-fetcher' in console)
+ * 
+ * NOTES:
+ * - Data delayed by at least 15 minutes (Yahoo Finance limitation)
+ * - NAV values reflect end-of-day pricing
+ * - Not all tickers supported (depends on Yahoo Finance availability)
  */
 
 // List of CORS proxies to try (will attempt each in order until success)
