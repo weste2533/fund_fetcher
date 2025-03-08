@@ -256,7 +256,7 @@
             async function processAFAXX(startDate) {
                 try {
                     // For MMF funds, we only use distribution data
-                    const distributionData = getDistributionData('AFAXX', startDate);
+                    const distributionData = getDistributionDataFromFiles('AFAXX', startDate);
                     
                     if (distributionData.error) {
                         throw new Error(distributionData.error);
@@ -270,7 +270,7 @@
             
             async function processMutualFund(ticker, startDate) {
                 // Get distribution data
-                const distributionData = getDistributionData(ticker, startDate);
+                const distributionData = getDistributionDataFromFiles(ticker, startDate);
                 
                 if (distributionData.error) {
                     throw new Error(distributionData.error);
