@@ -190,7 +190,7 @@ function fetchDistributionFile(ticker) {
     const filename = `${filePrefix}_${ticker}_distributions.txt`;
     
     // Use the raw GitHub URL
-    const baseUrl = 'https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/';
+    const baseUrl = 'https://raw.githubusercontent.com/weste2533/fund_fetcher/refs/heads/main/';
     const fileUrl = baseUrl + filename;
     
     console.log(`Attempting to fetch file: ${fileUrl}`);
