@@ -235,18 +235,14 @@
                 });
                 
                 try {
-                    // Process each fund independently
-                    processANCFX(startDate).catch(error => {
-                        showWarning('ancfx', `Note: ${error.message}`);
-                    });
+                    // Process each fund independently and in parallel
+                    const promises = [
+                        processANCFX(startDate),
+                        processAGTHX(startDate),
+                        processAFAXX(startDate)
+                    ];
                     
-                    processAGTHX(startDate).catch(error => {
-                        showWarning('agthx', `Note: ${error.message}`);
-                    });
-                    
-                    processAFAXX(startDate).catch(error => {
-                        showWarning('afaxx', `Note: ${error.message}`);
-                    });
+                    await Promise.allSettled(promises);
                 } catch (error) {
                     showError(`Failed to initialize fund data: ${error.message}`);
                 }
@@ -302,41 +298,57 @@
             
             async function processAFAXX(startDate) {
                 try {
-                    // For MMF funds
-                    let distributionData;
-                    try {
-                        distributionData = getDistributionData('AFAXX', startDate);
-                        
-                        if (distributionData.error) {
-                            throw new Error(distributionData.error);
-                        }
-                        
-                        if (!distributionData.items || !Array.isArray(distributionData.items)) {
-                            throw new Error('Distribution data is not in expected format');
-                        }
-                        
-                        renderFundData('afaxx', distributionData.items);
-                    } catch (distError) {
-                        // If distribution data fails, try NAV data
+                    // For MMF funds, use a Promise-based approach
+                    const distributionDataPromise = new Promise((resolve, reject) => {
                         try {
-                            const navData = await fetchFundData('AFAXX', startDate);
-                            if (navData && Array.isArray(navData)) {
-                                renderFundData('afaxx', navData.map(item => ({
-                                    date: item.date,
-                                    nav: item.nav,
-                                    dist: null
-                                })));
-                                showWarning('afaxx', 'Distribution data unavailable. Showing NAV data only.');
+                            // Make sure getDistributionData always returns a Promise
+                            const result = getDistributionData('AFAXX', startDate);
+                            
+                            // Handle both Promise and non-Promise return values
+                            if (result && typeof result.then === 'function') {
+                                // It's already a Promise
+                                resolve(result);
                             } else {
-                                throw new Error('No data available');
+                                // It's a direct return value, resolve with it
+                                resolve(result);
                             }
-                        } catch (navError) {
-                            throw new Error('Both distribution and NAV data unavailable');
+                        } catch (error) {
+                            reject(error);
                         }
+                    });
+                    
+                    const distributionData = await distributionDataPromise;
+                    
+                    if (distributionData.error) {
+                        throw new Error(distributionData.error);
                     }
-                } catch (error) {
-                    console.error(`Error processing AFAXX: ${error.message}`);
-                    throw error;
+                    
+                    if (!distributionData.items || !Array.isArray(distributionData.items)) {
+                        throw new Error('Distribution data is not in expected format');
+                    }
+                    
+                    renderFundData('afaxx', distributionData.items);
+                } catch (distError) {
+                    console.error(`Distribution error for AFAXX: ${distError.message}`);
+                    
+                    // If distribution data fails, try NAV data
+                    try {
+                        const navData = await fetchFundData('AFAXX', startDate);
+                        if (navData && Array.isArray(navData)) {
+                            renderFundData('afaxx', navData.map(item => ({
+                                date: item.date,
+                                nav: item.nav,
+                                dist: null
+                            })));
+                            showWarning('afaxx', 'Distribution data unavailable. Showing NAV data only.');
+                        } else {
+                            throw new Error('No data available');
+                        }
+                    } catch (navError) {
+                        console.error(`NAV error for AFAXX: ${navError.message}`);
+                        showWarning('afaxx', 'Both distribution and NAV data unavailable.');
+                        throw new Error('Both distribution and NAV data unavailable');
+                    }
                 }
             }
             
@@ -346,7 +358,25 @@
                 let distributionError = null;
                 
                 try {
-                    const distributionData = getDistributionData(ticker, startDate);
+                    // Make sure to properly await the distribution data
+                    const distributionDataPromise = new Promise((resolve, reject) => {
+                        try {
+                            const result = getDistributionData(ticker, startDate);
+                            
+                            // Handle both Promise and non-Promise return values
+                            if (result && typeof result.then === 'function') {
+                                // It's already a Promise
+                                resolve(result);
+                            } else {
+                                // It's a direct return value, resolve with it
+                                resolve(result);
+                            }
+                        } catch (error) {
+                            reject(error);
+                        }
+                    });
+                    
+                    const distributionData = await distributionDataPromise;
                     
                     if (distributionData.error) {
                         distributionError = distributionData.error;
