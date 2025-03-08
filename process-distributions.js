@@ -82,59 +82,87 @@
  * @return {Promise<Object>} Promise resolving to object containing distribution data items or error
  */
 function getDistributionData(ticker, startDate, endDate = new Date()) {
+  console.log(`Starting getDistributionData for ${ticker}, from ${startDate} to ${endDate}`);
   return new Promise((resolve, reject) => {
     try {
       // Validate inputs
       if (!ticker || typeof ticker !== 'string') {
+        console.error('Error: Invalid ticker symbol');
         return resolve({ error: 'Invalid ticker symbol', items: [] });
       }
       
       // Parse dates
+      console.log('Parsing dates...');
       const parsedStartDate = parseDate(startDate);
       const parsedEndDate = parseDate(endDate);
       
+      console.log(`Parsed dates: start=${parsedStartDate}, end=${parsedEndDate}`);
+      
       if (!parsedStartDate) {
+        console.error('Error: Invalid start date format');
         return resolve({ error: 'Invalid start date format', items: [] });
       }
       
       if (!parsedEndDate) {
+        console.error('Error: Invalid end date format');
         return resolve({ error: 'Invalid end date format', items: [] });
       }
       
       if (parsedStartDate > parsedEndDate) {
+        console.error('Error: Start date cannot be after end date');
         return resolve({ error: 'Start date cannot be after end date', items: [] });
       }
       
       // Determine fund type and fetch data
-      const filename = `${ticker.toLowerCase().startsWith('mmf_') ? 'mmf' : 'mutual'}_${ticker}_distributions.txt`;
-
-      console.log(`Starting fetch for {filename}`);
+      const isMmf = ticker.toLowerCase().startsWith('mmf_');
+      const filename = `${isMmf ? 'mmf' : 'mutual'}_${ticker}_distributions.txt`;
+      console.log(`Fund type: ${isMmf ? 'Money Market Fund' : 'Mutual Fund'}`);
+      console.log(`Attempting to fetch distribution file: ${filename}`);
       
       fetchDistributionFile(ticker)
         .then(data => {
           if (!data) {
+            console.error(`No data found for ticker ${ticker}`);
             return resolve({ error: `No data found for ticker ${ticker}`, items: [] });
-            console.log('No data found for ticker ${ticker}');
           }
+          
+          console.log(`Successfully retrieved data for ${ticker}. Processing...`);
           
           // Process data based on fund type
           let items = [];
           
           if (isMmfTicker(ticker)) {
+            console.log('Processing as Money Market Fund data');
             items = parseMmfData(data, parsedStartDate, parsedEndDate);
           } else {
+            console.log('Processing as Mutual Fund data');
             items = parseMutualFundData(data, parsedStartDate, parsedEndDate);
           }
           
+          console.log(`Processed ${items.length} distribution records`);
+          
           // Sort by date (oldest first)
           items.sort((a, b) => new Date(a.date) - new Date(b.date));
+          console.log('Items sorted by date (oldest first)');
           
+          // Log a sample of data for verification
+          if (items.length > 0) {
+            console.log('Sample data (first item):', JSON.stringify(items[0]));
+            if (items.length > 1) {
+              console.log('Sample data (last item):', JSON.stringify(items[items.length - 1]));
+            }
+          }
+          
+          console.log(`Returning ${items.length} items`);
           resolve({ items });
         })
         .catch(error => {
+          console.error(`Error in fetchDistributionFile: ${error.message}`);
           resolve({ error: `Error fetching distribution data: ${error.message}`, items: [] });
         });
     } catch (error) {
+      console.error(`Unexpected error in getDistributionData: ${error.message}`);
+      console.error(error.stack);
       resolve({ error: `Unexpected error: ${error.message}`, items: [] });
     }
   });
