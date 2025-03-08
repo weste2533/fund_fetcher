@@ -189,8 +189,8 @@ function fetchDistributionFile(ticker) {
     const filePrefix = isMmfTicker(ticker) ? 'mmf' : 'mutual';
     const filename = `${filePrefix}_${ticker}_distributions.txt`;
     
-    // Use the raw GitHub URL
-    const baseUrl = 'https://raw.githubusercontent.com/weste2533/fund_fetcher/refs/heads/main/';
+    // Use the standard format for raw GitHub URLs
+    const baseUrl = 'https://raw.githubusercontent.com/weste2533/fund_fetcher/main/';
     const fileUrl = baseUrl + filename;
     
     console.log(`Attempting to fetch file: ${fileUrl}`);
