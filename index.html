@@ -219,6 +219,8 @@
         <!-- These will be populated dynamically -->
     </div>
 
+    <div id="comparison-container"></div>
+
     <!-- Include the JavaScript modules -->
     <script src="fund-data-fetcher.js"></script>
     <script src="process-distributions.js"></script>
@@ -724,12 +726,16 @@
                 if (completionStatus.errors.length === 0) {
                     statusElement.textContent = `Data loading complete! All ${FUND_TICKERS.length} funds loaded successfully.`;
                     statusElement.style.color = '#4CAF50';
+                    
+                    // Calculate and display portfolio comparison after all data is loaded
+                    PortfolioCompare.calculatePortfolios(fundData);
+                    const comparisonHTML = PortfolioCompare.generateComparisonHTML();
+                    document.getElementById('comparison-container').innerHTML = comparisonHTML;
                 } else {
                     statusElement.textContent = `Data loading complete with ${completionStatus.errors.length} errors.`;
                     statusElement.style.color = 'orange';
                 }
             } else {
-                statusElement.textContent = `Loading fund data:
                 statusElement.textContent = `Loading fund data: ${progress}% complete (${completionStatus.completed}/${completionStatus.total})`;
             }
         }
