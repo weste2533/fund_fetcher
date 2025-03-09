@@ -64,26 +64,6 @@
             background-color: #f0f8ff;
             border-radius: 4px;
         }
-        .comparison-container {
-            margin: 20px 0;
-            padding: 15px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            background-color: #f9f9f9;
-        }
-        .portfolio-section {
-            margin: 20px 0;
-            padding: 10px;
-            border: 1px solid #eee;
-            border-radius: 4px;
-            background-color: white;
-        }
-        .fund-breakdown {
-            margin-left: 20px;
-            padding: 10px;
-            background-color: #f5f5f5;
-            border-radius: 4px;
-        }
     </style>
 </head>
 <body>
@@ -100,8 +80,13 @@
         <!-- These will be populated dynamically -->
     </div>
 
-    <!-- Portfolio comparison container -->
-    <div id="portfolio-comparison-container"></div>
+    <!-- New Portfolio Comparison Container -->
+    <div id="portfolio-container" class="fund-container">
+        <h2>Portfolio Comparison</h2>
+        <div id="portfolio-data" class="table-container">
+            <!-- Portfolio comparison will be displayed here once data is fully loaded -->
+        </div>
+    </div>
 
     <!-- Include the JavaScript modules -->
     <script src="fund-data-fetcher.js"></script>
@@ -117,7 +102,8 @@
         const completionStatus = {
             total: FUND_TICKERS.length * 2, // 2 operations per fund (NAV and distributions)
             completed: 0,
-            errors: []
+            errors: [],
+            portfolioCalculated: false  // Guard to ensure portfolio calculation runs once
         };
         
         // Store data for each fund
@@ -305,7 +291,7 @@
             });
         }
         
-        // Update overall completion status
+        // Update overall completion status and trigger portfolio calculation when all data is loaded
         function updateCompletionStatus(success, errorMessage = null) {
             completionStatus.completed++;
             
@@ -316,17 +302,34 @@
             const statusElement = document.getElementById('overall-status');
             const progress = Math.floor((completionStatus.completed / completionStatus.total) * 100);
             
-            if (completionStatus.completed === completionStatus.total) {
+            if (completionStatus.completed < completionStatus.total) {
+                statusElement.textContent = `Loading fund data: ${progress}% complete (${completionStatus.completed}/${completionStatus.total})`;
+            }
+            
+            // When all data operations are complete, run portfolio calculation if there are no errors
+            if (completionStatus.completed === completionStatus.total && !completionStatus.portfolioCalculated) {
+                completionStatus.portfolioCalculated = true;
                 if (completionStatus.errors.length === 0) {
                     statusElement.textContent = `Data loading complete! All ${FUND_TICKERS.length} funds loaded successfully.`;
                     statusElement.style.color = '#4CAF50';
-                    calculateAndDisplayPortfolios(); // NEW: Trigger portfolio calculation
+                    
+                    // Prepare data for portfolio comparison
+                    const portfolioFundData = {
+                        AFAXX: fundData['AFAXX'],
+                        AGTHX: fundData['AGTHX'],
+                        ANCFX: fundData['ANCFX']
+                    };
+                    
+                    // Calculate portfolio values using the PortfolioCompare module
+                    PortfolioCompare.calculatePortfolios(portfolioFundData);
+                    
+                    // Generate the comparison HTML and inject it into the portfolio container
+                    const portfolioHTML = PortfolioCompare.generateComparisonHTML();
+                    document.getElementById('portfolio-data').innerHTML = portfolioHTML;
                 } else {
                     statusElement.textContent = `Data loading complete with ${completionStatus.errors.length} errors.`;
                     statusElement.style.color = 'orange';
                 }
-            } else {
-                statusElement.textContent = `Loading fund data: ${progress}% complete (${completionStatus.completed}/${completionStatus.total})`;
             }
         }
         
@@ -354,21 +357,6 @@
             
             container.innerHTML = '';
             container.appendChild(table);
-        }
-
-        // NEW: Function to calculate and display portfolios
-        function calculateAndDisplayPortfolios() {
-            try {
-                // Calculate portfolio values
-                PortfolioCompare.calculatePortfolios(fundData);
-                
-                // Generate and display HTML
-                const html = PortfolioCompare.generateComparisonHTML();
-                document.getElementById('portfolio-comparison-container').innerHTML = html;
-            } catch (error) {
-                const errorHtml = `<div class="error">Error generating portfolio comparison: ${error.message}</div>`;
-                document.getElementById('portfolio-comparison-container').innerHTML = errorHtml;
-            }
         }
     </script>
 </body>
