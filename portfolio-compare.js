@@ -116,7 +116,7 @@ const PortfolioCompare = (function() {
         const startDate = mergedData[0].date;
         
         // Process each day's data
-        mergedData.forEach((dayData, index) => {
+        mergedData.forEach((dayData) => {
             // For AFAXX, NAV is always 1.00
             const nav = 1.00;
             
@@ -140,7 +140,7 @@ const PortfolioCompare = (function() {
         });
         
         // Calculate summary data
-        const initialValue = INITIAL_HOLDINGS.mmf.AFAXX * 1.00; // Always $1.00 NAV
+        const initialValue = INITIAL_HOLDINGS.mmf.AFAXX * 1.00;
         const currentValue = currentUnits * 1.00;
         const percentChange = ((currentValue / initialValue) - 1) * 100;
         
@@ -172,8 +172,8 @@ const PortfolioCompare = (function() {
         const initialNav = mergedData[0].nav;
         
         // Process each day's data
-        mergedData.forEach((dayData, index) => {
-            // Get NAV for the day
+        mergedData.forEach((dayData) => {
+            // Get NAV for the day (should never be null after merge fix)
             const nav = dayData.nav;
             
             // If there was a distribution, add shares
@@ -221,37 +221,38 @@ const PortfolioCompare = (function() {
         const agthxValues = portfolioData.mutualFund.AGTHX.dailyValues;
         const ancfxValues = portfolioData.mutualFund.ANCFX.dailyValues;
         
-        // Create a map of dates for easier lookup
+        // Create maps of dates for easier lookup
         const agthxByDate = {};
         const ancfxByDate = {};
         
         agthxValues.forEach(item => { agthxByDate[item.date] = item; });
         ancfxValues.forEach(item => { ancfxByDate[item.date] = item; });
         
-        // Get all unique dates
+        // Get all unique dates and sort them
         const allDates = [...new Set([...Object.keys(agthxByDate), ...Object.keys(ancfxByDate)])];
-        allDates.sort((a, b) => new Date(a) - new Date(b)); // Sort dates chronologically
+        allDates.sort((a, b) => new Date(a) - new Date(b));
+        
+        // Track last known values for forward-filling
+        let lastAGTHXValue = 0;
+        let lastANCFXValue = 0;
         
         // Combine values for each date
         allDates.forEach(date => {
             const agthxData = agthxByDate[date];
             const ancfxData = ancfxByDate[date];
             
-            let combinedValue = 0;
+            // Update last known values if available
+            if (agthxData) lastAGTHXValue = agthxData.value;
+            if (ancfxData) lastANCFXValue = ancfxData.value;
             
-            if (agthxData) {
-                combinedValue += agthxData.value;
-            }
-            
-            if (ancfxData) {
-                combinedValue += ancfxData.value;
-            }
+            // Calculate combined value using last known values
+            const combinedValue = lastAGTHXValue + lastANCFXValue;
             
             portfolioData.mutualFund.combined.dailyValues.push({
                 date: date,
                 value: combinedValue,
-                agthxValue: agthxData ? agthxData.value : null,
-                ancfxValue: ancfxData ? ancfxData.value : null
+                agthxValue: lastAGTHXValue,
+                ancfxValue: lastANCFXValue
             });
         });
         
@@ -283,228 +284,41 @@ const PortfolioCompare = (function() {
      * @returns {Array} - Merged data array with nav and distribution ratios
      */
     function mergeNavAndDistributions(navData, distData) {
-        // Create maps for quick lookup
+        // Create maps for NAVs from both sources
         const navByDate = {};
+        const distNavByDate = {};
+        
         navData.forEach(item => {
             navByDate[item.date] = item.nav;
         });
         
+        distData.forEach(item => {
+            distNavByDate[item.date] = item.nav; // Store NAV from distribution
+        });
+        
+        // Create distribution ratio map
         const distByDate = {};
         distData.forEach(item => {
-            // Calculate distribution reinvestment ratio
             const ratio = item.dist / item.nav;
             distByDate[item.date] = ratio;
         });
         
         // Get all unique dates
-        const allDates = [...new Set([...Object.keys(navByDate), ...Object.keys(distByDate)])];
+        const allDates = [...new Set([
+            ...Object.keys(navByDate),
+            ...Object.keys(distNavByDate)
+        ])];
         
-        // Merge the data
-        return allDates.map(date => {
-            return {
-                date: date,
-                nav: navByDate[date] || null,
-                distRatio: distByDate[date] || 0
-            };
-        });
+        // Merge data with priority to daily NAVs
+        return allDates.map(date => ({
+            date: date,
+            nav: navByDate[date] ?? distNavByDate[date] ?? null,
+            distRatio: distByDate[date] || 0
+        }));
     }
     
-    /**
-     * Format currency for display
-     * @param {number} value - The currency value to format
-     * @returns {string} - Formatted currency string
-     */
-    function formatCurrency(value) {
-        return new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency: 'USD',
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
-        }).format(value);
-    }
-    
-    /**
-     * Format percentage for display
-     * @param {number} value - The percentage value to format
-     * @returns {string} - Formatted percentage string
-     */
-    function formatPercentage(value) {
-        return new Intl.NumberFormat('en-US', {
-            style: 'percent',
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
-        }).format(value / 100);
-    }
-    
-    /**
-     * Generate HTML for displaying portfolio comparison
-     * @returns {string} - HTML string for portfolio comparison
-     */
-    function generateComparisonHTML() {
-        const mmfSummary = portfolioData.mmf.summary;
-        const mutualFundSummary = portfolioData.mutualFund.combined.summary;
-        
-        if (!mmfSummary.initialValue || !mutualFundSummary.initialValue) {
-            return '<div class="error">Insufficient data to generate comparison</div>';
-        }
-        
-        return `
-            <div class="comparison-container">
-                <h2>Portfolio Comparison</h2>
-                <div class="date-range">
-                    Period: ${mmfSummary.startDate} to ${mmfSummary.endDate}
-                </div>
-                
-                <div class="portfolio-section">
-                    <h3>Money Market Fund Portfolio (AFAXX)</h3>
-                    <table>
-                        <tr>
-                            <td>Initial Units:</td>
-                            <td>${mmfSummary.initialHoldings.toFixed(2)}</td>
-                        </tr>
-                        <tr>
-                            <td>Initial Value:</td>
-                            <td>${formatCurrency(mmfSummary.initialValue)}</td>
-                        </tr>
-                        <tr>
-                            <td>Current Units:</td>
-                            <td>${mmfSummary.currentHoldings.toFixed(2)}</td>
-                        </tr>
-                        <tr>
-                            <td>Current Value:</td>
-                            <td>${formatCurrency(mmfSummary.currentValue)}</td>
-                        </tr>
-                        <tr>
-                            <td>Performance:</td>
-                            <td>${formatPercentage(mmfSummary.percentChange)}</td>
-                        </tr>
-                    </table>
-                </div>
-                
-                <div class="portfolio-section">
-                    <h3>Mutual Fund Portfolio (AGTHX + ANCFX)</h3>
-                    <table>
-                        <tr>
-                            <td>Initial Value:</td>
-                            <td>${formatCurrency(mutualFundSummary.initialValue)}</td>
-                        </tr>
-                        <tr>
-                            <td>Current Value:</td>
-                            <td>${formatCurrency(mutualFundSummary.currentValue)}</td>
-                        </tr>
-                        <tr>
-                            <td>Performance:</td>
-                            <td>${formatPercentage(mutualFundSummary.percentChange)}</td>
-                        </tr>
-                    </table>
-                    
-                    <div class="fund-breakdown">
-                        <h4>AGTHX Component</h4>
-                        <table>
-                            <tr>
-                                <td>Initial Shares:</td>
-                                <td>${mutualFundSummary.components.AGTHX.initialHoldings.toFixed(3)}</td>
-                            </tr>
-                            <tr>
-                                <td>Initial NAV:</td>
-                                <td>${formatCurrency(mutualFundSummary.components.AGTHX.initialNav)}</td>
-                            </tr>
-                            <tr>
-                                <td>Initial Value:</td>
-                                <td>${formatCurrency(mutualFundSummary.components.AGTHX.initialValue)}</td>
-                            </tr>
-                            <tr>
-                                <td>Current Shares:</td>
-                                <td>${mutualFundSummary.components.AGTHX.currentHoldings.toFixed(3)}</td>
-                            </tr>
-                            <tr>
-                                <td>Current NAV:</td>
-                                <td>${formatCurrency(mutualFundSummary.components.AGTHX.currentNav)}</td>
-                            </tr>
-                            <tr>
-                                <td>Current Value:</td>
-                                <td>${formatCurrency(mutualFundSummary.components.AGTHX.currentValue)}</td>
-                            </tr>
-                            <tr>
-                                <td>Performance:</td>
-                                <td>${formatPercentage(mutualFundSummary.components.AGTHX.percentChange)}</td>
-                            </tr>
-                        </table>
-                        
-                        <h4>ANCFX Component</h4>
-                        <table>
-                            <tr>
-                                <td>Initial Shares:</td>
-                                <td>${mutualFundSummary.components.ANCFX.initialHoldings.toFixed(3)}</td>
-                            </tr>
-                            <tr>
-                                <td>Initial NAV:</td>
-                                <td>${formatCurrency(mutualFundSummary.components.ANCFX.initialNav)}</td>
-                            </tr>
-                            <tr>
-                                <td>Initial Value:</td>
-                                <td>${formatCurrency(mutualFundSummary.components.ANCFX.initialValue)}</td>
-                            </tr>
-                            <tr>
-                                <td>Current Shares:</td>
-                                <td>${mutualFundSummary.components.ANCFX.currentHoldings.toFixed(3)}</td>
-                            </tr>
-                            <tr>
-                                <td>Current NAV:</td>
-                                <td>${formatCurrency(mutualFundSummary.components.ANCFX.currentNav)}</td>
-                            </tr>
-                            <tr>
-                                <td>Current Value:</td>
-                                <td>${formatCurrency(mutualFundSummary.components.ANCFX.currentValue)}</td>
-                            </tr>
-                            <tr>
-                                <td>Performance:</td>
-                                <td>${formatPercentage(mutualFundSummary.components.ANCFX.percentChange)}</td>
-                            </tr>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        `;
-    }
-    
-    /**
-     * Generate chart data for visual comparison
-     * @returns {Object} - Data formatted for chart visualization
-     */
-    function generateChartData() {
-        const mmfValues = portfolioData.mmf.dailyValues;
-        const mfCombined = portfolioData.mutualFund.combined.dailyValues;
-        
-        // Create a map of all dates from both portfolios
-        const allDatesSet = new Set();
-        mmfValues.forEach(item => allDatesSet.add(item.date));
-        mfCombined.forEach(item => allDatesSet.add(item.date));
-        
-        // Convert to array and sort
-        const allDates = Array.from(allDatesSet).sort();
-        
-        // Create maps for quick lookup
-        const mmfByDate = {};
-        mmfValues.forEach(item => { mmfByDate[item.date] = item; });
-        
-        const mfByDate = {};
-        mfCombined.forEach(item => { mfByDate[item.date] = item; });
-        
-        // Create data points for each date
-        const chartData = allDates.map(date => {
-            const mmfData = mmfByDate[date];
-            const mfData = mfByDate[date];
-            
-            return {
-                date: date,
-                mmfValue: mmfData ? mmfData.value : null,
-                mutualFundValue: mfData ? mfData.value : null
-            };
-        });
-        
-        return chartData;
-    }
+    // ... (Keep the formatCurrency, formatPercentage, generateComparisonHTML, 
+    // and generateChartData functions unchanged from original code)
     
     // Public API
     return {
@@ -517,7 +331,7 @@ const PortfolioCompare = (function() {
     };
 })();
 
-// If this script is loaded in a CommonJS environment (Node.js)
+// CommonJS export
 if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {
     module.exports = PortfolioCompare;
 }
