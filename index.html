@@ -64,6 +64,80 @@
             background-color: #f0f8ff;
             border-radius: 4px;
         }
+        .chart-container {
+            width: 100%;
+            height: 400px;
+            margin: 20px 0;
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 10px;
+        }
+        .tabs {
+            display: flex;
+            margin-bottom: 15px;
+        }
+        .tab {
+            padding: 8px 16px;
+            background-color: #eaeaea;
+            cursor: pointer;
+            border: 1px solid #ddd;
+            border-bottom: none;
+            border-radius: 5px 5px 0 0;
+            margin-right: 5px;
+        }
+        .tab.active {
+            background-color: #3a506b;
+            color: white;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .chart-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .chart-legend {
+            display: flex;
+            gap: 15px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .legend-color {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+        }
+        .chart-title {
+            text-align: center;
+            margin-bottom: 15px;
+            color: #3a506b;
+        }
+        #performance-chart-container, #distribution-chart-container {
+            position: relative;
+        }
+        .tooltip {
+            position: absolute;
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            pointer-events: none;
+            z-index: 10;
+            box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.1);
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -75,11 +149,62 @@
         <div id="overall-status">Loading fund data...</div>
     </div>
 
-    <!-- Fund containers -->
-    <div id="funds-container">
-        <!-- These will be populated dynamically -->
+    <!-- Chart tabs -->
+    <div class="tabs">
+        <div class="tab active" data-tab="performance">NAV Performance</div>
+        <div class="tab" data-tab="distribution">Distribution Impact</div>
+        <div class="tab" data-tab="data">Detailed Data</div>
     </div>
 
+    <!-- Charts and data display -->
+    <div class="tab-content active" id="performance-tab">
+        <div class="chart-controls">
+            <label>
+                <input type="checkbox" id="normalize-nav" checked> Normalize values (Start from 100%)
+            </label>
+            <label>
+                <input type="checkbox" id="include-distributions" checked> Include distribution impact
+            </label>
+            <label>
+                Time range:
+                <select id="time-range">
+                    <option value="all">All Available Data</option>
+                    <option value="30" selected>Last 30 Days</option>
+                    <option value="90">Last 90 Days</option>
+                </select>
+            </label>
+        </div>
+        <div class="chart-container">
+            <h3 class="chart-title">Fund NAV Performance Comparison</h3>
+            <div id="performance-chart-container">
+                <canvas id="performance-chart"></canvas>
+                <div id="performance-tooltip" class="tooltip"></div>
+            </div>
+            <div class="chart-legend" id="performance-legend"></div>
+        </div>
+    </div>
+
+    <div class="tab-content" id="distribution-tab">
+        <div class="chart-container">
+            <h3 class="chart-title">Distribution Reinvestment Impact</h3>
+            <div id="distribution-chart-container">
+                <canvas id="distribution-chart"></canvas>
+                <div id="distribution-tooltip" class="tooltip"></div>
+            </div>
+            <div class="chart-legend" id="distribution-legend"></div>
+        </div>
+    </div>
+
+    <div class="tab-content" id="data-tab">
+        <!-- Fund containers -->
+        <div id="funds-container">
+            <!-- These will be populated dynamically -->
+        </div>
+    </div>
+
+    <!-- Include Chart.js library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.1/chart.min.js"></script>
+    
     <!-- Include the JavaScript modules -->
     <script src="fund-data-fetcher.js"></script>
     <script src="process-distributions.js"></script>
@@ -88,6 +213,11 @@
         // Configuration
         const START_DATE = '2024-12-31';
         const FUND_TICKERS = ['ANCFX', 'AGTHX', 'AFAXX'];
+        const FUND_COLORS = {
+            'ANCFX': '#4285F4', // Blue
+            'AGTHX': '#34A853', // Green
+            'AFAXX': '#FBBC05'  // Yellow
+        };
         
         // Track completion status for each fund and data type
         const completionStatus = {
@@ -101,14 +231,20 @@
         FUND_TICKERS.forEach(ticker => {
             fundData[ticker] = {
                 nav: [],
-                distributions: []
+                distributions: [],
+                mergedData: []
             };
         });
+
+        // Chart objects
+        let performanceChart = null;
+        let distributionChart = null;
         
         // Initialize the page
         document.addEventListener('DOMContentLoaded', function() {
             initializePage();
             loadAllFundData();
+            setupTabNavigation();
         });
         
         // Set up the page with containers for each fund
@@ -126,6 +262,28 @@
                 `;
                 container.appendChild(fundDiv);
             });
+        }
+        
+        // Set up tab navigation
+        function setupTabNavigation() {
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    // Remove active class from all tabs and tab contents
+                    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    
+                    // Add active class to clicked tab and corresponding content
+                    tab.classList.add('active');
+                    const tabContentId = tab.getAttribute('data-tab') + '-tab';
+                    document.getElementById(tabContentId).classList.add('active');
+                });
+            });
+
+            // Set up chart control event listeners
+            document.getElementById('normalize-nav').addEventListener('change', updatePerformanceChart);
+            document.getElementById('include-distributions').addEventListener('change', updatePerformanceChart);
+            document.getElementById('time-range').addEventListener('change', updatePerformanceChart);
         }
         
         // Load data for all funds
@@ -233,11 +391,17 @@
                 
                 // Merge the data
                 const mergedData = mergeNavAndDistributions(navData, distributionData, ticker);
+                fundData[ticker].mergedData = mergedData;
                 
                 // Display the merged data
                 displayMergedData(containerElement, mergedData, ticker);
                 
                 statusElement.textContent = `Displaying ${mergedData.length} data points for ${ticker}`;
+                
+                // Update charts if all funds are loaded
+                if (isAllDataLoaded()) {
+                    initializeCharts();
+                }
             }
         }
         
@@ -263,22 +427,33 @@
             
             // Get all unique dates from both datasets
             const allDates = [...new Set([...Object.keys(navByDate), ...Object.keys(distByDate)])];
-            allDates.sort().reverse(); // Sort chronologically in descending order (newest first)
+            allDates.sort(); // Sort chronologically in ascending order (oldest first)
             
             // Merge the data for each date
-            return allDates.map(date => {
+            let cumulativeRatio = 1; // Start with no adjustment
+            const result = allDates.map(date => {
                 const navValue = navByDate[date] || null;
                 const dist = distByDate[date] || null;
                 
                 // Set reinvestment ratio to 0 when no distribution data is available
                 const ratio = dist ? dist.ratio : 0;
                 
+                // Update cumulative ratio for distributions
+                if (ratio > 0) {
+                    cumulativeRatio *= (1 + ratio);
+                }
+                
                 return {
                     date: date,
                     nav: ticker === 'AFAXX' ? 1.00 : navValue, // Ensure AFAXX always has NAV of $1.00
-                    distRatio: ratio
+                    distRatio: ratio,
+                    cumulativeRatio: cumulativeRatio,
+                    adjustedNav: (ticker === 'AFAXX' ? 1.00 : navValue) * cumulativeRatio
                 };
             });
+            
+            // Sort in descending order (newest first) for display
+            return result.sort((a, b) => b.date.localeCompare(a.date));
         }
         
         // Update overall completion status
@@ -314,6 +489,7 @@
                         <th>Date</th>
                         <th>NAV</th>
                         <th>Distribution Reinvestment Ratio</th>
+                        <th>Adjusted NAV (with distributions)</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -322,6 +498,7 @@
                             <td>${item.date}</td>
                             <td>${item.nav ? '$' + item.nav.toFixed(2) : 'N/A'}</td>
                             <td>${item.distRatio !== null ? item.distRatio.toFixed(6) : 'N/A'}</td>
+                            <td>${item.adjustedNav ? '$' + item.adjustedNav.toFixed(2) : 'N/A'}</td>
                         </tr>
                     `).join('')}
                 </tbody>
@@ -329,6 +506,330 @@
             
             container.innerHTML = '';
             container.appendChild(table);
+        }
+        
+        // Check if all fund data has been loaded
+        function isAllDataLoaded() {
+            return completionStatus.completed === completionStatus.total;
+        }
+        
+        // Initialize charts once all data is loaded
+        function initializeCharts() {
+            initializePerformanceChart();
+            initializeDistributionChart();
+        }
+        
+        // Initialize performance comparison chart
+        function initializePerformanceChart() {
+            const ctx = document.getElementById('performance-chart').getContext('2d');
+            
+            // Destroy existing chart if it exists
+            if (performanceChart) {
+                performanceChart.destroy();
+            }
+            
+            // Update chart with current data
+            updatePerformanceChart();
+        }
+        
+        // Update performance chart based on filters
+        function updatePerformanceChart() {
+            const normalize = document.getElementById('normalize-nav').checked;
+            const includeDistributions = document.getElementById('include-distributions').checked;
+            const timeRange = document.getElementById('time-range').value;
+            
+            // Prepare data for each fund
+            const datasets = [];
+            const allDates = new Set();
+            
+            // Define cutoff date for time range filter
+            let cutoffDate = null;
+            if (timeRange !== 'all') {
+                const days = parseInt(timeRange);
+                cutoffDate = new Date();
+                cutoffDate.setDate(cutoffDate.getDate() - days);
+                cutoffDate = cutoffDate.toISOString().split('T')[0];
+            }
+            
+            // Process each fund's data
+            FUND_TICKERS.forEach(ticker => {
+                if (!fundData[ticker] || !fundData[ticker].mergedData || fundData[ticker].mergedData.length === 0) {
+                    return;
+                }
+                
+                // Filter data by time range if specified
+                let filteredData = [...fundData[ticker].mergedData].sort((a, b) => a.date.localeCompare(b.date));
+                if (cutoffDate) {
+                    filteredData = filteredData.filter(item => item.date >= cutoffDate);
+                }
+                
+                if (filteredData.length === 0) {
+                    return;
+                }
+                
+                // Get the initial value for normalization
+                const initialValue = includeDistributions 
+                    ? filteredData[0].adjustedNav 
+                    : filteredData[0].nav;
+                
+                // Prepare data points
+                const dataPoints = filteredData.map(item => {
+                    // Add date to the set of all dates
+                    allDates.add(item.date);
+                    
+                    // Get value based on distribution inclusion
+                    const value = includeDistributions ? item.adjustedNav : item.nav;
+                    
+                    // Normalize if required
+                    const normalizedValue = normalize 
+                        ? (value / initialValue) * 100 
+                        : value;
+                    
+                    return {
+                        x: item.date,
+                        y: normalizedValue
+                    };
+                });
+                
+                // Add dataset for this fund
+                datasets.push({
+                    label: ticker,
+                    data: dataPoints,
+                    borderColor: FUND_COLORS[ticker],
+                    backgroundColor: FUND_COLORS[ticker] + '20', // Add transparency
+                    tension: 0.1,
+                    pointRadius: 2,
+                    pointHoverRadius: 5
+                });
+            });
+            
+            // If no data is available, display a message
+            if (datasets.length === 0) {
+                return;
+            }
+            
+            // Create the chart
+            const ctx = document.getElementById('performance-chart').getContext('2d');
+            if (performanceChart) {
+                performanceChart.destroy();
+            }
+            
+            // Set chart title based on settings
+            let chartTitle = 'Fund Performance Comparison';
+            if (normalize) {
+                chartTitle += ' (Normalized to 100%)';
+            }
+            if (includeDistributions) {
+                chartTitle += ' with Distributions Reinvested';
+            }
+            document.querySelector('#performance-tab .chart-title').textContent = chartTitle;
+            
+            // Create the chart
+            performanceChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: getTimeUnit(timeRange),
+                                displayFormats: {
+                                    day: 'MMM d',
+                                    week: 'MMM d',
+                                    month: 'MMM yyyy'
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'Date'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: normalize ? 'Value (%)' : 'NAV ($)'
+                            },
+                            beginAtZero: false
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (normalize) {
+                                        label += context.parsed.y.toFixed(2) + '%';
+                                    } else {
+                                        label += '$' + context.parsed.y.toFixed(2);
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Update the legend
+            updateLegend('performance-legend', datasets);
+        }
+        
+        // Initialize distribution impact chart
+        function initializeDistributionChart() {
+            const ctx = document.getElementById('distribution-chart').getContext('2d');
+            
+            // Destroy existing chart if it exists
+            if (distributionChart) {
+                distributionChart.destroy();
+            }
+            
+            // Prepare data for each fund
+            const datasets = [];
+            
+            // Process each fund's data to show cumulative distribution impact
+            FUND_TICKERS.forEach(ticker => {
+                if (!fundData[ticker] || !fundData[ticker].mergedData || fundData[ticker].mergedData.length === 0) {
+                    return;
+                }
+                
+                // Sort data chronologically
+                const sortedData = [...fundData[ticker].mergedData].sort((a, b) => a.date.localeCompare(b.date));
+                
+                if (sortedData.length === 0) {
+                    return;
+                }
+                
+                // Calculate the difference between adjusted NAV and regular NAV
+                const dataPoints = sortedData.map(item => {
+                    const distributionImpact = (item.adjustedNav - item.nav) / item.nav * 100;
+                    return {
+                        x: item.date,
+                        y: distributionImpact
+                    };
+                });
+                
+                // Add dataset for this fund
+                datasets.push({
+                    label: ticker,
+                    data: dataPoints,
+                    borderColor: FUND_COLORS[ticker],
+                    backgroundColor: FUND_COLORS[ticker] + '20', // Add transparency
+                    tension: 0.1,
+                    pointRadius: 1,
+                    pointHoverRadius: 5
+                });
+            });
+            
+            // If no data is available, display a message
+            if (datasets.length === 0) {
+                return;
+            }
+            
+            // Create the chart
+            distributionChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'month',
+                                displayFormats: {
+                                    month: 'MMM yyyy'
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'Date'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Distribution Impact (%)'
+                            },
+                            beginAtZero: true
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    label += context.parsed.y.toFixed(2) + '%';
+                                    return label;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Update the legend
+            updateLegend('distribution-legend', datasets);
+        }
+        
+        // Update chart legend
+        function updateLegend(elementId, datasets) {
+            const legendElement = document.getElementById(elementId);
+            legendElement.innerHTML = '';
+            
+            datasets.forEach(dataset => {
+                const legendItem = document.createElement('div');
+                legendItem.className = 'legend-item';
+                
+                const colorBox = document.createElement('div');
+                colorBox.className = 'legend-color';
+                colorBox.style.backgroundColor = dataset.borderColor;
+                
+                const labelText = document.createElement('span');
+                labelText.textContent = dataset.label;
+                
+                legendItem.appendChild(colorBox);
+                legendItem.appendChild(labelText);
+                legendElement.appendChild(legendItem);
+            });
+        }
+        
+        // Determine time unit based on selected range
+        function getTimeUnit(timeRange) {
+            if (timeRange === 'all') {
+                return 'month';
+            } else if (timeRange === '90') {
+                return 'week';
+            } else {
+                return 'day';
+            }
         }
     </script>
 </body>
