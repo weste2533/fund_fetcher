@@ -12,7 +12,7 @@
             padding: 20px;
             line-height: 1.6;
         }
-        h1, h2, h3, h4 {
+        h1, h2, h3 {
             color: #3a506b;
         }
         .date-range {
@@ -23,16 +23,12 @@
             padding: 10px;
             border-radius: 4px;
         }
-        .fund-container, .portfolio-container {
+        .fund-container {
             margin-bottom: 30px;
             padding: 15px;
             border: 1px solid #ddd;
             border-radius: 5px;
             background-color: #f9f9f9;
-        }
-        .portfolio-container {
-            background-color: #f0f8ff;
-            border-color: #bbd6f9;
         }
         table {
             width: 100%;
@@ -69,23 +65,24 @@
             border-radius: 4px;
         }
         .comparison-container {
+            margin: 20px 0;
             padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
         }
         .portfolio-section {
-            margin-bottom: 20px;
+            margin: 20px 0;
             padding: 10px;
-            background-color: #fff;
+            border: 1px solid #eee;
             border-radius: 4px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            background-color: white;
         }
         .fund-breakdown {
-            margin-top: 15px;
+            margin-left: 20px;
             padding: 10px;
-            background-color: #f8f8f8;
+            background-color: #f5f5f5;
             border-radius: 4px;
-        }
-        #portfolio-comparison {
-            display: none;
         }
     </style>
 </head>
@@ -98,17 +95,13 @@
         <div id="overall-status">Loading fund data...</div>
     </div>
 
-    <!-- Portfolio Comparison Container -->
-    <div id="portfolio-comparison" class="portfolio-container">
-        <h2>Portfolio Performance Comparison</h2>
-        <div id="portfolio-status" class="loading">Waiting for fund data to be loaded...</div>
-        <div id="portfolio-content"></div>
-    </div>
-
     <!-- Fund containers -->
     <div id="funds-container">
         <!-- These will be populated dynamically -->
     </div>
+
+    <!-- Portfolio comparison container -->
+    <div id="portfolio-comparison-container"></div>
 
     <!-- Include the JavaScript modules -->
     <script src="fund-data-fetcher.js"></script>
@@ -327,69 +320,13 @@
                 if (completionStatus.errors.length === 0) {
                     statusElement.textContent = `Data loading complete! All ${FUND_TICKERS.length} funds loaded successfully.`;
                     statusElement.style.color = '#4CAF50';
-                    
-                    // Now that all data is loaded, calculate and display portfolios
-                    calculatePortfolioComparison();
+                    calculateAndDisplayPortfolios(); // NEW: Trigger portfolio calculation
                 } else {
                     statusElement.textContent = `Data loading complete with ${completionStatus.errors.length} errors.`;
                     statusElement.style.color = 'orange';
-                    
-                    // Try to calculate portfolios with available data
-                    if (allRequiredDataAvailable()) {
-                        calculatePortfolioComparison();
-                    } else {
-                        const portfolioStatus = document.getElementById('portfolio-status');
-                        portfolioStatus.className = 'error';
-                        portfolioStatus.textContent = 'Portfolio comparison cannot be calculated due to missing data.';
-                    }
                 }
             } else {
                 statusElement.textContent = `Loading fund data: ${progress}% complete (${completionStatus.completed}/${completionStatus.total})`;
-            }
-        }
-        
-        // Check if all required data for portfolio calculation is available
-        function allRequiredDataAvailable() {
-            // Check if we have NAV and distribution data for all funds
-            return FUND_TICKERS.every(ticker => 
-                fundData[ticker] && 
-                fundData[ticker].nav && 
-                fundData[ticker].nav.length > 0);
-        }
-        
-        // Calculate and display portfolio comparisons
-        function calculatePortfolioComparison() {
-            const portfolioStatus = document.getElementById('portfolio-status');
-            const portfolioContent = document.getElementById('portfolio-content');
-            const portfolioComparison = document.getElementById('portfolio-comparison');
-            
-            // Show the portfolio section
-            portfolioComparison.style.display = 'block';
-            
-            portfolioStatus.textContent = 'Calculating portfolio performance...';
-            
-            try {
-                // Calculate portfolios using the imported PortfolioCompare module
-                const calculatedData = PortfolioCompare.calculatePortfolios(fundData);
-                
-                // Generate HTML for comparison
-                const comparisonHTML = PortfolioCompare.generateComparisonHTML();
-                
-                // Display the HTML
-                portfolioContent.innerHTML = comparisonHTML;
-                
-                // Update status
-                portfolioStatus.textContent = 'Portfolio comparison completed successfully.';
-                portfolioStatus.className = ''; // Remove loading class
-                
-                // Generate chart data for visualization (could be used for charts in future)
-                const chartData = PortfolioCompare.generateChartData();
-                // We could add charts here using the chartData if desired
-                
-            } catch (error) {
-                portfolioStatus.className = 'error';
-                portfolioStatus.textContent = `Error calculating portfolio comparison: ${error.message}`;
-                console.error('Portfolio calculation error:', error);
             }
         }
         
@@ -417,6 +354,21 @@
             
             container.innerHTML = '';
             container.appendChild(table);
+        }
+
+        // NEW: Function to calculate and display portfolios
+        function calculateAndDisplayPortfolios() {
+            try {
+                // Calculate portfolio values
+                PortfolioCompare.calculatePortfolios(fundData);
+                
+                // Generate and display HTML
+                const html = PortfolioCompare.generateComparisonHTML();
+                document.getElementById('portfolio-comparison-container').innerHTML = html;
+            } catch (error) {
+                const errorHtml = `<div class="error">Error generating portfolio comparison: ${error.message}</div>`;
+                document.getElementById('portfolio-comparison-container').innerHTML = errorHtml;
+            }
         }
     </script>
 </body>
