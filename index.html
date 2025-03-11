@@ -4,236 +4,66 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fund Data Viewer</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-            line-height: 1.6;
-        }
-        h1, h2, h3 {
-            color: #3a506b;
-        }
-        .date-range {
-            font-size: 1.1em;
-            color: #555;
-            margin-bottom: 20px;
-            background-color: #f0f8ff;
-            padding: 10px;
-            border-radius: 4px;
-        }
-        .fund-container {
-            margin-bottom: 30px;
-            padding: 15px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            background-color: #f9f9f9;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 10px;
-        }
-        th, td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: left;
-        }
-        th {
-            background-color: #eaeaea;
-            position: sticky;
-            top: 0;
-        }
-        .table-container {
-            max-height: 500px;
-            overflow-y: auto;
-            margin-top: 15px;
-        }
-        .loading {
-            color: #777;
-            font-style: italic;
-        }
-        .error {
-            color: #c94040;
-            font-weight: bold;
-        }
-        .status-container {
-            margin-top: 10px;
-            padding: 10px;
-            background-color: #f0f8ff;
-            border-radius: 4px;
-        }
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        h1, h2 { text-align: center; }
+        .date-range { text-align: center; margin: 10px 0; }
+        .status-container { text-align: center; margin: 20px 0; }
+        .fund-container { margin: 20px 0; }
+        .table-container { margin-top: 10px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: right; }
+        th { background-color: #f2f2f2; }
+        .loading { color: #888; }
+        .error { color: red; }
     </style>
 </head>
 <body>
     <h1>Mutual Fund Data Explorer</h1>
     <div class="date-range">
-        Displaying available data from <strong>12/31/2023</strong> - Current
+        Displaying available data from <strong>12/31/2024</strong> - Current
     </div>
     <div class="status-container">
         <div id="overall-status">Loading fund data...</div>
     </div>
 
     <!-- Fund containers -->
-    <div id="funds-container">
-        <!-- These will be populated dynamically -->
-    </div>
+    <div id="funds-container"></div>
 
     <!-- Portfolio Comparison Section -->
     <h2>Portfolio Comparison</h2>
     <div id="portfolio-comparison-container" class="table-container"></div>
 
-    <!-- Placeholder JavaScript modules -->
-    <script>
-        // fund-data-fetcher.js placeholder
-        async function fetchFundData(ticker, startDate) {
-            // Simulate fetching NAV data from Yahoo Finance
-            // Replace with actual implementation (e.g., using yfinance API)
-            const today = new Date();
-            const start = new Date(startDate);
-            const data = [];
-            let currentNav = ticker === 'AGTHX' ? 50.00 : 60.00; // Starting NAVs
-            for (let d = new Date(start); d <= today; d.setDate(d.getDate() + 1)) {
-                if (d.getDay() !== 0 && d.getDay() !== 6) { // Business days only
-                    currentNav += (Math.random() - 0.5) * 0.5; // Simulate price movement
-                    data.push({ date: d.toISOString().split('T')[0], nav: currentNav });
-                }
-            }
-            return data.slice(0, -1); // Exclude today to simulate real data
-        }
-
-        // process-distributions.js placeholder
-        async function getDistributionData(ticker, startDate) {
-            // Simulate distribution data
-            const distributions = [];
-            const start = new Date(startDate);
-            const today = new Date();
-            for (let d = new Date(start); d <= today; d.setMonth(d.getMonth() + 3)) {
-                if (d.getDay() !== 0 && d.getDay() !== 6) {
-                    distributions.push({
-                        date: d.toISOString().split('T')[0],
-                        dist: ticker === 'AFAXX' ? 0.01 : 0.50,
-                        nav: ticker === 'AFAXX' ? 1.00 : 50.00
-                    });
-                }
-            }
-            return { items: distributions, error: null };
-        }
-
-        // portfolio-compare.js
-        function calculatePortfolioPerformance() {
-            console.log('Calculating portfolio performance...');
-            if (!mergedFundData['AFAXX'] || !mergedFundData['AGTHX'] || !mergedFundData['ANCFX']) {
-                console.error('Missing data for one or more funds:', {
-                    AFAXX: mergedFundData['AFAXX']?.length,
-                    AGTHX: mergedFundData['AGTHX']?.length,
-                    ANCFX: mergedFundData['ANCFX']?.length
-                });
-                return;
-            }
-
-            // Find the common date range
-            const dates = {};
-            FUND_TICKERS.forEach(ticker => {
-                mergedFundData[ticker].forEach(d => dates[d.date] = (dates[d.date] || 0) + 1);
-            });
-            const commonDates = Object.keys(dates)
-                .filter(date => dates[date] === FUND_TICKERS.length)
-                .sort();
-
-            if (commonDates.length === 0) {
-                console.error('No common dates found for all funds.');
-                return;
-            }
-
-            const mmfPortfolio = { name: 'Money Market Portfolio (AFAXX)', value: 10000, data: [] };
-            const mutualFundPortfolio = { name: 'Mutual Fund Portfolio (AGTHX + ANCFX)', value: 10000, data: [] };
-
-            let mmfShares = mmfPortfolio.value / mergedFundData['AFAXX'][0].nav;
-            let agthxShares = (mutualFundPortfolio.value / 2) / mergedFundData['AGTHX'][0].nav;
-            let ancfxShares = (mutualFundPortfolio.value / 2) / mergedFundData['ANCFX'][0].nav;
-
-            commonDates.forEach(date => {
-                const mmfData = mergedFundData['AFAXX'].find(d => d.date === date);
-                const agthxData = mergedFundData['AGTHX'].find(d => d.date === date);
-                const ancfxData = mergedFundData['ANCFX'].find(d => d.date === date);
-
-                // Money Market Portfolio
-                if (mmfData.distRatio > 0) {
-                    const distribution = mmfShares * mmfData.distRatio * mmfData.nav;
-                    mmfShares += distribution / mmfData.nav;
-                }
-                const mmfValue = mmfShares * mmfData.nav;
-                mmfPortfolio.data.push({ date, value: mmfValue });
-
-                // Mutual Fund Portfolio
-                if (agthxData.distRatio > 0) {
-                    const distribution = agthxShares * agthxData.distRatio * agthxData.nav;
-                    agthxShares += distribution / agthxData.nav;
-                }
-                if (ancfxData.distRatio > 0) {
-                    const distribution = ancfxShares * ancfxData.distRatio * ancfxData.nav;
-                    ancfxShares += distribution / ancfxData.nav;
-                }
-                const mutualValue = (agthxShares * agthxData.nav) + (ancfxShares * ancfxData.nav);
-                mutualFundPortfolio.data.push({ date, value: mutualValue });
-            });
-
-            console.log('Portfolio data calculated:', { mmfPortfolio, mutualFundPortfolio });
-            displayPortfolioComparison(mmfPortfolio, mutualFundPortfolio);
-        }
-
-        function displayPortfolioComparison(mmfPortfolio, mutualFundPortfolio) {
-            console.log('Displaying portfolio comparison...');
-            const container = document.getElementById('portfolio-comparison-container');
-            const table = document.createElement('table');
-            table.innerHTML = `
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>${mmfPortfolio.name}</th>
-                        <th>${mutualFundPortfolio.name}</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${mmfPortfolio.data.map((item, index) => `
-                        <tr>
-                            <td>${item.date}</td>
-                            <td>$${item.value.toFixed(2)}</td>
-                            <td>$${mutualFundPortfolio.data[index].value.toFixed(2)}</td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            `;
-            container.innerHTML = '';
-            container.appendChild(table);
-            console.log('Portfolio comparison table appended to DOM.');
-        }
-    </script>
+    <!-- Scripts -->
+    <script src="fund-data-fetcher.js"></script>
+    <script src="process-distributions.js"></script>
+    <script src="portfolio-compare.js"></script>
 
     <script>
-        // Main application logic
-        const START_DATE = '2023-12-31';
+        const START_DATE = '2024-12-31';
         const FUND_TICKERS = ['ANCFX', 'AGTHX', 'AFAXX'];
-        
+
+        // Track completion status
         const completionStatus = {
             total: FUND_TICKERS.length * 2, // NAV and distributions per fund
             completed: 0,
             errors: []
         };
-        
+
+        // Store merged data globally
         const mergedFundData = {};
         const fundData = {};
         FUND_TICKERS.forEach(ticker => {
             fundData[ticker] = { nav: [], distributions: [] };
         });
-        
-        document.addEventListener('DOMContentLoaded', function() {
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', () => {
             initializePage();
             loadAllFundData();
         });
-        
+
         function initializePage() {
             const container = document.getElementById('funds-container');
             container.innerHTML = '';
@@ -248,24 +78,24 @@
                 container.appendChild(fundDiv);
             });
         }
-        
+
         function loadAllFundData() {
             FUND_TICKERS.forEach(ticker => {
                 fetchNavData(ticker);
                 fetchDistributionData(ticker);
             });
         }
-        
+
         function fetchNavData(ticker) {
             const statusElement = document.getElementById(`${ticker}-status`);
             statusElement.textContent = `Fetching NAV data for ${ticker}...`;
-            
+
             if (ticker === 'AFAXX') {
                 const today = new Date();
                 const startDate = new Date(START_DATE);
                 const data = [];
                 for (let d = new Date(startDate); d <= today; d.setDate(d.getDate() + 1)) {
-                    if (d.getDay() !== 0 && d.getDay() !== 6) {
+                    if (d.getDay() !== 0 && d.getDay() !== 6) { // Skip weekends
                         data.push({ date: d.toISOString().split('T')[0], nav: 1.00 });
                     }
                 }
@@ -275,134 +105,142 @@
                 checkAndMergeData(ticker);
                 return;
             }
-            
+
             fetchFundData(ticker, START_DATE)
                 .then(data => {
                     updateCompletionStatus(true);
-                    if (data && data.length > 0) {
-                        fundData[ticker].nav = data;
-                        statusElement.textContent = `Loaded ${data.length} NAV data points for ${ticker}`;
-                    } else {
-                        statusElement.textContent = `No NAV data available for ${ticker}`;
-                    }
+                    fundData[ticker].nav = data || [];
+                    statusElement.textContent = data.length
+                        ? `Loaded ${data.length} NAV data points for ${ticker}`
+                        : `No NAV data available for ${ticker}`;
                     checkAndMergeData(ticker);
                 })
                 .catch(error => {
-                    updateCompletionStatus(false, `NAV data error for ${ticker}: ${error.message}`);
+                    updateCompletionStatus(false, `NAV error for ${ticker}: ${error.message}`);
                     statusElement.className = 'error';
-                    statusElement.textContent = `Error fetching NAV data: ${error.message}`;
+                    statusElement.textContent = `Error fetching NAV: ${error.message}`;
                 });
         }
-        
+
         function fetchDistributionData(ticker) {
             const statusElement = document.getElementById(`${ticker}-status`);
             statusElement.textContent = `Fetching distribution data for ${ticker}...`;
+
             getDistributionData(ticker, START_DATE)
                 .then(result => {
                     updateCompletionStatus(true);
-                    if (result.error) {
-                        statusElement.className = 'error';
-                        statusElement.textContent = `Error: ${result.error}`;
-                    } else if (result.items && result.items.length > 0) {
-                        fundData[ticker].distributions = result.items;
-                        statusElement.textContent = `Loaded ${result.items.length} distribution data points for ${ticker}`;
-                    } else {
-                        statusElement.textContent = `No distribution data available for ${ticker}`;
-                    }
+                    fundData[ticker].distributions = result.items || [];
+                    statusElement.textContent = result.error
+                        ? `Error: ${result.error}`
+                        : result.items.length
+                        ? `Loaded ${result.items.length} distribution data points for ${ticker}`
+                        : `No distribution data for ${ticker}`;
                     checkAndMergeData(ticker);
                 })
                 .catch(error => {
-                    updateCompletionStatus(false, `Distribution data error for ${ticker}: ${error.message}`);
+                    updateCompletionStatus(false, `Distribution error for ${ticker}: ${error.message}`);
                     statusElement.className = 'error';
-                    statusElement.textContent = `Error fetching distribution data: ${error.message}`;
+                    statusElement.textContent = `Error fetching distributions: ${error.message}`;
                 });
         }
-        
-        function mergeNavAndDistributions(navData, distributionData, ticker) {
-            const navByDate = {};
-            navData.forEach(item => navByDate[item.date] = item.nav);
-            const distByDate = {};
-            distributionData.forEach(item => {
-                const ratio = item.dist / item.nav;
-                distByDate[item.date] = { dist: item.dist, nav: item.nav, ratio: ratio };
-            });
-            const allDates = [...new Set([...Object.keys(navByDate), ...Object.keys(distByDate)])].sort();
-            let lastNav = null;
-            const mergedData = allDates.map(date => {
-                let navValue = navByDate[date];
-                if (navValue === undefined && ticker !== 'AFAXX') {
-                    navValue = lastNav;
-                } else {
-                    lastNav = navValue;
-                }
-                const dist = distByDate[date] || null;
-                const ratio = dist ? dist.ratio : 0;
-                return {
-                    date: date,
-                    nav: ticker === 'AFAXX' ? 1.00 : navValue,
-                    distRatio: ratio
-                };
-            });
-            return mergedData;
-        }
-        
+
         function checkAndMergeData(ticker) {
-            const navData = fundData[ticker].nav;
-            const distributionData = fundData[ticker].distributions;
-            if (navData.length > 0) {
-                const containerElement = document.getElementById(`${ticker}-container`);
-                const statusElement = document.getElementById(`${ticker}-status`);
-                statusElement.textContent = `Merging and displaying data for ${ticker}...`;
-                const mergedData = mergeNavAndDistributions(navData, distributionData, ticker);
+            if (fundData[ticker].nav.length > 0) {
+                const container = document.getElementById(`${ticker}-container`);
+                const status = document.getElementById(`${ticker}-status`);
+                status.textContent = `Merging data for ${ticker}...`;
+
+                const mergedData = mergeNavAndDistributions(fundData[ticker].nav, fundData[ticker].distributions, ticker);
                 mergedFundData[ticker] = mergedData;
-                displayMergedData(containerElement, mergedData, ticker);
-                statusElement.textContent = `Displaying ${mergedData.length} data points for ${ticker}`;
+                displayMergedData(container, mergedData, ticker);
+                status.textContent = `Displaying ${mergedData.length} data points for ${ticker}`;
             }
         }
-        
-        function updateCompletionStatus(success, errorMessage = null) {
+
+        function mergeNavAndDistributions(navData, distributionData, ticker) {
+            const navByDate = Object.fromEntries(navData.map(item => [item.date, item.nav]));
+            const distByDate = Object.fromEntries(
+                distributionData.map(item => [item.date, { dist: item.dist, nav: item.nav, ratio: item.dist / item.nav }])
+            );
+            const allDates = [...new Set([...Object.keys(navByDate), ...Object.keys(distByDate)])].sort().reverse();
+
+            return allDates.map(date => ({
+                date,
+                nav: ticker === 'AFAXX' ? 1.00 : navByDate[date] || null,
+                distRatio: distByDate[date]?.ratio || 0
+            }));
+        }
+
+        function updateCompletionStatus(success, errorMessage) {
             completionStatus.completed++;
-            if (!success && errorMessage) {
-                completionStatus.errors.push(errorMessage);
-            }
+            if (!success && errorMessage) completionStatus.errors.push(errorMessage);
+
             const statusElement = document.getElementById('overall-status');
             const progress = Math.floor((completionStatus.completed / completionStatus.total) * 100);
+
             if (completionStatus.completed === completionStatus.total) {
-                if (completionStatus.errors.length === 0) {
-                    statusElement.textContent = `Data loading complete! All ${FUND_TICKERS.length} funds loaded successfully.`;
-                    statusElement.style.color = '#4CAF50';
-                } else {
-                    statusElement.textContent = `Data loading complete with ${completionStatus.errors.length} errors.`;
-                    statusElement.style.color = 'orange';
-                }
-                calculatePortfolioPerformance();
+                statusElement.textContent = completionStatus.errors.length
+                    ? `Data loading complete with ${completionStatus.errors.length} errors.`
+                    : `Data loading complete! All ${FUND_TICKERS.length} funds loaded.`;
+                statusElement.style.color = completionStatus.errors.length ? 'orange' : '#4CAF50';
+
+                // Calculate and display portfolio comparison
+                const portfolios = calculatePortfolioPerformance(mergedFundData, 'MMF Portfolio', 'Mutual Fund Portfolio');
+                displayPortfolioComparison(portfolios);
             } else {
-                statusElement.textContent = `Loading fund data: ${progress}% complete (${completionStatus.completed}/${completionStatus.total})`;
+                statusElement.textContent = `Loading: ${progress}% (${completionStatus.completed}/${completionStatus.total})`;
             }
         }
-        
+
         function displayMergedData(container, data, ticker) {
             const table = document.createElement('table');
             table.innerHTML = `
                 <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>NAV</th>
-                        <th>Distribution Reinvestment Ratio</th>
-                    </tr>
+                    <tr><th>Date</th><th>NAV</th><th>Dist. Ratio</th></tr>
                 </thead>
                 <tbody>
                     ${data.map(item => `
                         <tr>
                             <td>${item.date}</td>
                             <td>${item.nav ? '$' + item.nav.toFixed(2) : 'N/A'}</td>
-                            <td>${item.distRatio !== null ? item.distRatio.toFixed(6) : 'N/A'}</td>
+                            <td>${item.distRatio.toFixed(6)}</td>
                         </tr>
                     `).join('')}
                 </tbody>
             `;
             container.innerHTML = '';
             container.appendChild(table);
+        }
+
+        function displayPortfolioComparison(portfolios) {
+            const container = document.getElementById('portfolio-comparison-container');
+            container.innerHTML = '';
+
+            const ctx = document.createElement('canvas');
+            container.appendChild(ctx);
+
+            const dates = portfolios['MMF Portfolio'].data.map(d => d.date);
+            const mmfValues = portfolios['MMF Portfolio'].data.map(d => d['MMF Portfolio'].totalValue);
+            const mutualValues = portfolios['Mutual Fund Portfolio'].data.map(d => d['Mutual Fund Portfolio'].totalValue);
+
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [
+                        { label: 'MMF Portfolio', data: mmfValues, borderColor: 'blue', fill: false },
+                        { label: 'Mutual Fund Portfolio', data: mutualValues, borderColor: 'green', fill: false }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { title: { display: true, text: 'Portfolio Performance Comparison' } },
+                    scales: {
+                        x: { title: { display: true, text: 'Date' } },
+                        y: { title: { display: true, text: 'Value ($)' } }
+                    }
+                }
+            });
         }
     </script>
 </body>
