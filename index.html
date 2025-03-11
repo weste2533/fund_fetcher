@@ -80,9 +80,14 @@
         <!-- These will be populated dynamically -->
     </div>
 
+    <!-- Portfolio Comparison Section -->
+    <h2>Portfolio Comparison</h2>
+    <div id="portfolio-comparison-container" class="table-container"></div>
+
     <!-- Include the JavaScript modules -->
     <script src="fund-data-fetcher.js"></script>
     <script src="process-distributions.js"></script>
+    <script src="portfolio-compare.js"></script>
     
     <script>
         // Configuration
@@ -95,6 +100,9 @@
             completed: 0,
             errors: []
         };
+        
+        // Store merged data for each fund globally
+        const mergedFundData = {};
         
         // Store data for each fund
         const fundData = {};
@@ -234,6 +242,9 @@
                 // Merge the data
                 const mergedData = mergeNavAndDistributions(navData, distributionData, ticker);
                 
+                // Store merged data globally for portfolio calculations
+                mergedFundData[ticker] = mergedData;
+                
                 // Display the merged data
                 displayMergedData(containerElement, mergedData, ticker);
                 
@@ -300,6 +311,8 @@
                     statusElement.textContent = `Data loading complete with ${completionStatus.errors.length} errors.`;
                     statusElement.style.color = 'orange';
                 }
+                // Trigger portfolio calculation after all data is loaded
+                calculatePortfolioPerformance();
             } else {
                 statusElement.textContent = `Loading fund data: ${progress}% complete (${completionStatus.completed}/${completionStatus.total})`;
             }
