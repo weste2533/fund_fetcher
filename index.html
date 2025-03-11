@@ -6,97 +6,180 @@
     <title>Fund Data Viewer</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
             line-height: 1.6;
+            background-color: #121212;
+            color: #e4e4e4;
         }
         h1, h2, h3 {
-            color: #3a506b;
+            color: #81e6d9; /* Teal accent */
         }
         .date-range {
             font-size: 1.1em;
-            color: #555;
+            color: #c4c4c4;
             margin-bottom: 20px;
-            background-color: #f0f8ff;
+            background-color: #1e293b;
             padding: 10px;
-            border-radius: 4px;
+            border-radius: 8px;
+            border-left: 4px solid #6366f1; /* Indigo accent */
         }
         .fund-container {
             margin-bottom: 30px;
-            padding: 15px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            background-color: #f9f9f9;
+            padding: 20px;
+            border: 1px solid #2d3748;
+            border-radius: 10px;
+            background-color: #1a202c;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .fund-container:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
         }
         table {
             width: 100%;
             border-collapse: collapse;
             margin-top: 10px;
+            background-color: #1e293b;
+            border-radius: 6px;
+            overflow: hidden;
         }
         th, td {
-            border: 1px solid #ddd;
-            padding: 8px;
+            border: 1px solid #2d3748;
+            padding: 10px;
             text-align: left;
         }
         th {
-            background-color: #eaeaea;
+            background-color: #374151;
             position: sticky;
             top: 0;
+            color: #81e6d9; /* Teal for headers */
+        }
+        tr:nth-child(even) {
+            background-color: #283141;
+        }
+        tr:hover {
+            background-color: #324055;
         }
         .table-container {
             max-height: 500px;
             overflow-y: auto;
             margin-top: 15px;
+            border-radius: 8px;
+            border: 1px solid #2d3748;
         }
         .loading {
-            color: #777;
+            color: #a3a3a3;
             font-style: italic;
         }
         .error {
-            color: #c94040;
+            color: #f87171; /* Red for errors */
             font-weight: bold;
+            background-color: rgba(248, 113, 113, 0.1);
+            padding: 8px;
+            border-radius: 4px;
         }
         .status-container {
             margin-top: 10px;
-            padding: 10px;
-            background-color: #f0f8ff;
-            border-radius: 4px;
+            padding: 12px 15px;
+            background-color: #1e293b;
+            border-radius: 8px;
+            border-left: 4px solid #8b5cf6; /* Purple accent */
         }
         .button-container {
             margin-top: 15px;
             display: flex;
             gap: 10px;
+            flex-wrap: wrap;
         }
         .download-btn {
-            padding: 8px 16px;
-            background-color: #4CAF50;
+            padding: 10px 16px;
+            background-color: #6366f1; /* Indigo */
             color: white;
             border: none;
-            border-radius: 4px;
+            border-radius: 6px;
             cursor: pointer;
             font-size: 14px;
+            transition: background-color 0.2s, transform 0.1s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
         .download-btn:hover {
-            background-color: #45a049;
+            background-color: #4f46e5;
+            transform: translateY(-1px);
+        }
+        .download-btn:active {
+            transform: translateY(1px);
         }
         .download-btn:disabled {
-            background-color: #cccccc;
+            background-color: #4b5563;
             cursor: not-allowed;
+            opacity: 0.7;
         }
         .format-select {
-            padding: 8px;
-            border-radius: 4px;
-            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #4b5563;
+            background-color: #2d3748;
+            color: #e4e4e4;
+            font-size: 14px;
+            outline: none;
+        }
+        .format-select:focus {
+            border-color: #6366f1;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #2d3748;
+            padding-bottom: 15px;
+        }
+        .logo {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #81e6d9; /* Teal */
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .logo span {
+            color: #8b5cf6; /* Purple */
+        }
+        .logo-icon {
+            color: #6366f1; /* Indigo */
+            font-size: 1.2em;
+        }
+        .data-point {
+            color: #a5b4fc; /* Light indigo for values */
+        }
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            margin-left: 10px;
+            background-color: #6366f1;
+            color: white;
         }
     </style>
 </head>
 <body>
-    <h1>Mutual Fund Data Explorer</h1>
+    <div class="header">
+        <div class="logo">
+            <span class="logo-icon">📊</span>Mutual Fund <span>Explorer</span>
+        </div>
+    </div>
+    
     <div class="date-range">
         Displaying available data from <strong>12/31/2024</strong> - Current
     </div>
+    
     <div class="status-container">
         <div id="overall-status">Loading fund data...</div>
     </div>
@@ -147,7 +230,7 @@
                 const fundDiv = document.createElement('div');
                 fundDiv.className = 'fund-container';
                 fundDiv.innerHTML = `
-                    <h2>${ticker} Fund Data</h2>
+                    <h2>${ticker} Fund Data <span class="badge">Live</span></h2>
                     <div id="${ticker}-status" class="loading">Loading data...</div>
                     <div class="button-container">
                         <select id="${ticker}-format" class="format-select">
@@ -155,8 +238,12 @@
                             <option value="csv">CSV</option>
                             <option value="tsv">TSV</option>
                         </select>
-                        <button id="${ticker}-download" class="download-btn" disabled>Download Data</button>
-                        <button id="${ticker}-console" class="download-btn" disabled>Log to Console</button>
+                        <button id="${ticker}-download" class="download-btn" disabled>
+                            <span>📥</span> Download Data
+                        </button>
+                        <button id="${ticker}-console" class="download-btn" disabled>
+                            <span>🔍</span> Log to Console
+                        </button>
                     </div>
                     <div id="${ticker}-container" class="table-container"></div>
                 `;
@@ -280,17 +367,28 @@
                 // Merge the data
                 const mergedData = mergeNavAndDistributions(navData, distributionData, ticker);
                 
-                // Store the merged data for later download
-                fundData[ticker].merged = mergedData;
+                // Filter out items with missing NAV data
+                const filteredData = mergedData.filter(item => {
+                    return item.nav !== null && item.nav !== undefined;
+                });
                 
-                // Display the merged data
-                displayMergedData(containerElement, mergedData, ticker);
+                // Store the filtered merged data for later download
+                fundData[ticker].merged = filteredData;
+                
+                // Display the filtered merged data
+                displayMergedData(containerElement, filteredData, ticker);
                 
                 // Enable download buttons
                 document.getElementById(`${ticker}-download`).disabled = false;
                 document.getElementById(`${ticker}-console`).disabled = false;
                 
-                statusElement.textContent = `Displaying ${mergedData.length} data points for ${ticker}`;
+                // Show the number of filtered items
+                const filteredCount = mergedData.length - filteredData.length;
+                if (filteredCount > 0) {
+                    statusElement.textContent = `Displaying ${filteredData.length} data points for ${ticker} (${filteredCount} incomplete entries removed)`;
+                } else {
+                    statusElement.textContent = `Displaying ${filteredData.length} data points for ${ticker}`;
+                }
             }
         }
         
@@ -349,10 +447,10 @@
             if (completionStatus.completed === completionStatus.total) {
                 if (completionStatus.errors.length === 0) {
                     statusElement.textContent = `Data loading complete! All ${FUND_TICKERS.length} funds loaded successfully.`;
-                    statusElement.style.color = '#4CAF50';
+                    statusElement.style.color = '#10b981'; // Green
                 } else {
                     statusElement.textContent = `Data loading complete with ${completionStatus.errors.length} errors.`;
-                    statusElement.style.color = 'orange';
+                    statusElement.style.color = '#f59e0b'; // Amber
                 }
             } else {
                 statusElement.textContent = `Loading fund data: ${progress}% complete (${completionStatus.completed}/${completionStatus.total})`;
@@ -375,9 +473,9 @@
                     ${data.map(item => `
                         <tr>
                             <td>${item.date}</td>
-                            <td>${item.nav ? '$' + item.nav.toFixed(2) : 'N/A'}</td>
-                            <td>${item.distRatio !== null ? item.distRatio.toFixed(6) : 'N/A'}</td>
-                            <td>${item.distribution !== null ? '$' + item.distribution.toFixed(6) : 'N/A'}</td>
+                            <td class="data-point">${item.nav ? '$' + item.nav.toFixed(2) : 'N/A'}</td>
+                            <td class="data-point">${item.distRatio !== null ? item.distRatio.toFixed(6) : 'N/A'}</td>
+                            <td class="data-point">${item.distribution !== null ? '$' + item.distribution.toFixed(6) : 'N/A'}</td>
                         </tr>
                     `).join('')}
                 </tbody>
