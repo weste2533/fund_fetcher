@@ -171,6 +171,10 @@ function calculateMMFPortfolio(mmfData, initialUnits, startDate) {
  * @returns {Object} - Portfolio tracking data
  */
 function calculateMutualFundsPortfolio(agthxData, ancfxData, agthxUnits, ancfxUnits, startDate) {
+    // Log the unfiltered lengths for debugging purposes
+    console.log('Mutual Funds unfiltered - AGTHX length:', agthxData.length, 'ANCFX length:', ancfxData.length);
+ 
+    
     const portfolio = {
         name: 'Mutual Funds Portfolio',
         initialDate: startDate,
