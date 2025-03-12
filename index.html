@@ -454,6 +454,10 @@
                 if (completionStatus.errors.length === 0) {
                     statusElement.textContent = `Data loading complete! All ${FUND_TICKERS.length} funds loaded successfully.`;
                     statusElement.style.color = '#10b981'; // Green
+
+                    // THIS IS WHERE YOU COULD ADD YOUR ADDITIONAL PROCESSING CODE
+                    // processAllCompletedData();
+                    
                 } else {
                     statusElement.textContent = `Data loading complete with ${completionStatus.errors.length} errors.`;
                     statusElement.style.color = '#f59e0b'; // Amber
