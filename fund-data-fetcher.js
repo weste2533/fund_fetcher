@@ -94,10 +94,13 @@
 
 // List of CORS proxies to try (will attempt each in order until success)
 const PROXIES = [
-    "https://api.allorigins.win/get?url=",
-    "https://corsproxy.io/?", 
-    "https://thingproxy.freeboard.io/fetch/",
-    "https://cors-anywhere.herokuapp.com/"
+    "https://cors-proxy.htmldriven.com/?url=",
+    "https://api.codetabs.com/v1/proxy?quest=",
+    "https://crossorigin.me/",
+    "https://cors.bridged.cc/",
+    "https://yacdn.org/proxy/",
+    "https://proxy.cors.sh/",
+    "https://cors-proxy.apihouse.com?url="
 ];
 
 async function fetchFundData(ticker, startDate, endDate = null) {
