@@ -93,8 +93,8 @@
  */
 
 const PROXIES = [
-    "https://corsproxy.io/?", 
     "https://api.allorigins.win/get?url=",
+    "https://corsproxy.io/?", 
     "https://yacdn.org/proxy/",
     "https://proxy.cors.sh/",
     "https://cors.connetar.com/",
