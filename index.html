@@ -58,6 +58,12 @@
             top: 0;
             color: #81e6d9; /* Teal for headers */
         }
+        /* Column width adjustments */
+        th:nth-child(1), td:nth-child(1) { width: 20%; } /* Date */
+        th:nth-child(2), td:nth-child(2) { width: 20%; } /* NAV */
+        th:nth-child(3), td:nth-child(3) { width: 30%; } /* Distribution Reinvestment Ratio */
+        th:nth-child(4), td:nth-child(4) { width: 30%; } /* Distribution */
+        
         tr:nth-child(even) {
             background-color: #283141;
         }
@@ -230,7 +236,7 @@
                 const fundDiv = document.createElement('div');
                 fundDiv.className = 'fund-container';
                 fundDiv.innerHTML = `
-                    <h2>${ticker} Fund Data <span class="badge">Live</span></h2>
+                    <h2>${ticker} Fund Data</h2>
                     <div id="${ticker}-status" class="loading">Loading data...</div>
                     <div class="button-container">
                         <select id="${ticker}-format" class="format-select">
@@ -465,7 +471,7 @@
                     <tr>
                         <th>Date</th>
                         <th>NAV</th>
-                        <th>Distribution Reinvestment Ratio</th>
+                        <th>Dist. Ratio</th>
                         <th>Distribution</th>
                     </tr>
                 </thead>
