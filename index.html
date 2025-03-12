@@ -460,6 +460,8 @@
                 // Store the filtered merged data for later download
                 fundData[ticker].merged = filteredData;
                 
+                console.log(`Merged ${ticker} - Length: ${filteredData.length}, Sample:`, filteredData[0]); // Debug
+                
                 // Display the filtered merged data
                 displayMergedData(containerElement, filteredData, ticker);
                 
@@ -548,6 +550,7 @@
         
         // Function to process all completed data for portfolio comparison
         function processAllCompletedData() {
+            console.log('Before portfolio comparison - AGTHX merged length:', fundData.AGTHX.merged.length, 'Sample:', fundData.AGTHX.merged[0]); // Debug
             const portfolioStatusElement = document.getElementById('portfolio-status');
             portfolioStatusElement.textContent = 'Calculating portfolio comparisons...';
             
