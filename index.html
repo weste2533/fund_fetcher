@@ -173,6 +173,75 @@
             background-color: #6366f1;
             color: white;
         }
+        /* Portfolio comparison styles */
+        .portfolio-section {
+            margin-bottom: 30px;
+        }
+        .portfolio-cards {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+        .portfolio-card {
+            flex: 1;
+            min-width: 300px;
+            padding: 20px;
+            border-radius: 10px;
+            background-color: #1a202c;
+            border: 1px solid #2d3748;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .portfolio-card.mmf {
+            border-left: 4px solid #10b981; /* Green accent */
+        }
+        .portfolio-card.mutual-funds {
+            border-left: 4px solid #8b5cf6; /* Purple accent */
+        }
+        .portfolio-card h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #2d3748;
+        }
+        .portfolio-stat {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+        .portfolio-label {
+            font-weight: 500;
+            color: #c4c4c4;
+        }
+        .portfolio-value {
+            font-weight: 600;
+            color: #a5b4fc;
+        }
+        .positive-change {
+            color: #10b981; /* Green */
+        }
+        .negative-change {
+            color: #ef4444; /* Red */
+        }
+        .chart-container {
+            height: 400px;
+            margin-bottom: 30px;
+            background-color: #1a202c;
+            border-radius: 10px;
+            padding: 20px;
+            border: 1px solid #2d3748;
+        }
+        .holdings-details {
+            margin-top: 15px;
+            padding-top: 12px;
+            border-top: 1px solid #2d3748;
+        }
+        .holdings-title {
+            font-size: 1em;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #81e6d9;
+        }
     </style>
 </head>
 <body>
@@ -190,6 +259,15 @@
         <div id="overall-status">Loading fund data...</div>
     </div>
 
+    <!-- Portfolio Comparison Section -->
+    <div class="portfolio-section">
+        <h2>Portfolio Comparison</h2>
+        <div id="portfolio-status" class="loading">Waiting for fund data to load...</div>
+        <div id="portfolio-cards" class="portfolio-cards">
+            <!-- Portfolio cards will be populated dynamically -->
+        </div>
+    </div>
+
     <!-- Fund containers -->
     <div id="funds-container">
         <!-- These will be populated dynamically -->
@@ -198,6 +276,7 @@
     <!-- Include the JavaScript modules -->
     <script src="fund-data-fetcher.js"></script>
     <script src="process-distributions.js"></script>
+    <script src="portfolio-compare.js"></script>
     
     <script>
         // Configuration
@@ -455,8 +534,8 @@
                     statusElement.textContent = `Data loading complete! All ${FUND_TICKERS.length} funds loaded successfully.`;
                     statusElement.style.color = '#10b981'; // Green
 
-                    // THIS IS WHERE YOU COULD ADD YOUR ADDITIONAL PROCESSING CODE
-                    // processAllCompletedData();
+                    // Call the portfolio comparison function
+                    processAllCompletedData();
                     
                 } else {
                     statusElement.textContent = `Data loading complete with ${completionStatus.errors.length} errors.`;
@@ -464,6 +543,37 @@
                 }
             } else {
                 statusElement.textContent = `Loading fund data: ${progress}% complete (${completionStatus.completed}/${completionStatus.total})`;
+            }
+        }
+        
+        // Function to process all completed data for portfolio comparison
+        function processAllCompletedData() {
+            const portfolioStatusElement = document.getElementById('portfolio-status');
+            portfolioStatusElement.textContent = 'Calculating portfolio comparisons...';
+            
+            try {
+                // Get data from portfolio-compare.js
+                const portfolioComparison = calculatePortfolioComparison(fundData, {
+                    mmf: {
+                        units: 77650.78,
+                        startDate: START_DATE
+                    },
+                    mutualFunds: {
+                        AGTHX: 104.855,
+                        ANCFX: 860.672,
+                        startDate: START_DATE
+                    }
+                });
+                
+                // Display the comparison
+                displayPortfolioComparison(portfolioComparison);
+                
+                portfolioStatusElement.textContent = 'Portfolio comparison complete!';
+                portfolioStatusElement.style.color = '#10b981'; // Green
+            } catch (error) {
+                console.error('Error calculating portfolio comparison:', error);
+                portfolioStatusElement.className = 'error';
+                portfolioStatusElement.textContent = `Error calculating portfolio comparison: ${error.message}`;
             }
         }
         
