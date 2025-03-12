@@ -463,33 +463,33 @@ function displayPortfolioComparison(comparison) {
         <h3>Money Market Fund (AFAXX)</h3>
         <div class="portfolio-stat">
             <span class="portfolio-label">Current Value:</span>
-            <span class="portfolio-value">$${mmf.currentValue.toFixed(2)}</span>
+            <span class="portfolio-value">$${mmf.currentValue ? mmf.currentValue.toFixed(2) : '0.00'}</span>
         </div>
         <div class="portfolio-stat">
             <span class="portfolio-label">Initial Value:</span>
-            <span class="portfolio-value">$${mmf.initialValue.toFixed(2)}</span>
+            <span class="portfolio-value">$${mmf.initialValue ? mmf.initialValue.toFixed(2) : '0.00'}</span>
         </div>
         <div class="portfolio-stat">
             <span class="portfolio-label">Change:</span>
             <span class="portfolio-value ${mmf.change >= 0 ? 'positive-change' : 'negative-change'}">
-                $${mmf.change.toFixed(2)} (${mmf.changePercent.toFixed(2)}%)
+                $${mmf.change ? mmf.change.toFixed(2) : '0.00'} (${mmf.changePercent ? mmf.changePercent.toFixed(2) : '0.00'}%)
             </span>
         </div>
         <div class="portfolio-stat">
             <span class="portfolio-label">Annualized Return:</span>
             <span class="portfolio-value ${mmf.annualizedReturn >= 0 ? 'positive-change' : 'negative-change'}">
-                ${mmf.annualizedReturn.toFixed(2)}%
+                ${mmf.annualizedReturn ? mmf.annualizedReturn.toFixed(2) : '0.00'}%
             </span>
         </div>
         <div class="portfolio-stat">
             <span class="portfolio-label">Volatility:</span>
-            <span class="portfolio-value">${mmf.volatility.toFixed(2)}%</span>
+            <span class="portfolio-value">${mmf.volatility ? mmf.volatility.toFixed(2) : '0.00'}%</span>
         </div>
         <div class="holdings-details">
             <div class="holdings-title">Current Holdings</div>
             <div class="portfolio-stat">
                 <span class="portfolio-label">AFAXX Units:</span>
-                <span class="portfolio-value">${mmf.currentUnits.toFixed(2)}</span>
+                <span class="portfolio-value">${mmf.currentUnits ? mmf.currentUnits.toFixed(2) : 'N/A'}</span>
             </div>
         </div>
     `;
@@ -501,37 +501,37 @@ function displayPortfolioComparison(comparison) {
         <h3>Mutual Funds Portfolio</h3>
         <div class="portfolio-stat">
             <span class="portfolio-label">Current Value:</span>
-            <span class="portfolio-value">$${mutualFunds.currentValue.toFixed(2)}</span>
+            <span class="portfolio-value">$${mutualFunds.currentValue ? mutualFunds.currentValue.toFixed(2) : '0.00'}</span>
         </div>
         <div class="portfolio-stat">
             <span class="portfolio-label">Initial Value:</span>
-            <span class="portfolio-value">$${mutualFunds.initialValue.toFixed(2)}</span>
+            <span class="portfolio-value">$${mutualFunds.initialValue ? mutualFunds.initialValue.toFixed(2) : '0.00'}</span>
         </div>
         <div class="portfolio-stat">
             <span class="portfolio-label">Change:</span>
             <span class="portfolio-value ${mutualFunds.change >= 0 ? 'positive-change' : 'negative-change'}">
-                $${mutualFunds.change.toFixed(2)} (${mutualFunds.changePercent.toFixed(2)}%)
+                $${mutualFunds.change ? mutualFunds.change.toFixed(2) : '0.00'} (${mutualFunds.changePercent ? mutualFunds.changePercent.toFixed(2) : '0.00'}%)
             </span>
         </div>
         <div class="portfolio-stat">
             <span class="portfolio-label">Annualized Return:</span>
             <span class="portfolio-value ${mutualFunds.annualizedReturn >= 0 ? 'positive-change' : 'negative-change'}">
-                ${mutualFunds.annualizedReturn.toFixed(2)}%
+                ${mutualFunds.annualizedReturn ? mutualFunds.annualizedReturn.toFixed(2) : '0.00'}%
             </span>
         </div>
         <div class="portfolio-stat">
             <span class="portfolio-label">Volatility:</span>
-            <span class="portfolio-value">${mutualFunds.volatility.toFixed(2)}%</span>
+            <span class="portfolio-value">${mutualFunds.volatility ? mutualFunds.volatility.toFixed(2) : '0.00'}%</span>
         </div>
         <div class="holdings-details">
             <div class="holdings-title">Current Holdings</div>
             <div class="portfolio-stat">
                 <span class="portfolio-label">AGTHX Units:</span>
-                <span class="portfolio-value">${mutualFunds.currentAGTHXUnits.toFixed(3)}</span>
+                <span class="portfolio-value">${mutualFunds.currentAGTHXUnits ? mutualFunds.currentAGTHXUnits.toFixed(3) : 'N/A'}</span>
             </div>
             <div class="portfolio-stat">
                 <span class="portfolio-label">ANCFX Units:</span>
-                <span class="portfolio-value">${mutualFunds.currentANCFXUnits.toFixed(3)}</span>
+                <span class="portfolio-value">${mutualFunds.currentANCFXUnits ? mutualFunds.currentANCFXUnits.toFixed(3) : 'N/A'}</span>
             </div>
         </div>
     `;
