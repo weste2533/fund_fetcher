@@ -21,6 +21,8 @@ function calculatePortfolioComparison(fundData, portfolioConfig) {
     if (!fundData.AFAXX || !fundData.AGTHX || !fundData.ANCFX) {
         throw new Error('Missing required fund data for portfolio comparison');
     }
+
+    console.log('Post-validation - AGTHX merged length:', fundData.AGTHX.merged.length); // Debug
     
     // Preparation: Standardize the format of merged data for all funds
     console.log('Preparing time series data...');
