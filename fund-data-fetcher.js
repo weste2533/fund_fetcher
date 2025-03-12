@@ -92,15 +92,15 @@
  * - Not all tickers supported (depends on Yahoo Finance availability)
  */
 
-// List of CORS proxies to try (will attempt each in order until success)
 const PROXIES = [
-    "https://cors-proxy.htmldriven.com/?url=",
-    "https://api.codetabs.com/v1/proxy?quest=",
-    "https://crossorigin.me/",
-    "https://cors.bridged.cc/",
+    "https://corsproxy.io/?", 
+    "https://api.allorigins.win/get?url=",
     "https://yacdn.org/proxy/",
     "https://proxy.cors.sh/",
-    "https://cors-proxy.apihouse.com?url="
+    "https://cors.connetar.com/",
+    "https://cors.zapashcanon.fr/",
+    "https://cors.hostwinkdns.com/",
+    "https://cors.eu.org/"
 ];
 
 async function fetchFundData(ticker, startDate, endDate = null) {
